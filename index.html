@@ -3,12 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v2.6</title>
+    <title>THE DECKS Online v2.7</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
         #connection-panel { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; margin: 20px; border: 2px solid #f1c40f; text-align: center; width: 90%; max-width: 400px; }
-        #game-board { width: 95%; max-width: 1000px; display: none; flex-direction: column; gap: 10px; margin-top: 20px;}
+        
+        /* 初期状態は非表示、transitionToGame()で表示 */
+        #game-board, #game-controls, #game-log { display: none; }
+
+        #game-board { width: 95%; max-width: 1000px; flex-direction: column; gap: 10px; margin-top: 20px;}
         .player-area { border: 2px solid #7f8c8d; padding: 10px; border-radius: 10px; background: #34495e; position: relative; transition: all 0.3s; }
         .active-area { border-color: #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
         .stats { display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; font-size: 13px;}
@@ -19,8 +23,8 @@
         .card.tapped { transform: rotate(10deg); opacity: 0.7; background: #bdc3c7; }
         .card.selected { border-color: #3498db; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(52, 152, 219, 0.6); z-index: 10; }
         .suit { font-size: 20px; }
-        .controls { margin: 15px; display: none; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
-        .log-container { width: 95%; max-width: 1000px; height: 140px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; display: none;}
+        .controls { margin: 15px; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
+        .log-container { width: 95%; max-width: 1000px; height: 140px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
         .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 11px; border-bottom: 1px solid #222; color: #ccc;}
         button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; }
         button.primary { background: #f1c40f; color: #000; }
@@ -66,10 +70,12 @@
     </div>
 </div>
 
+<div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px;"></div>
+
+<!-- 盤面エリア -->
 <div id="game-board">
     <div id="opp-area" class="player-area">
         <div class="stats">ENEMY | Deck: <span id="opp-deck">0</span> | AP: <span id="opp-ap">0</span></div>
-        <!-- ボタンをfieldの外側に移動 -->
         <button id="direct-btn" class="direct-attack-btn" onclick="executeDirectAttack()">直接攻撃！</button>
         <div id="opp-field" class="field"></div>
         <div id="opp-hand" class="hand"></div>
@@ -92,59 +98,95 @@
 <script>
 const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
 let peer, conn, isHost = false, myRole = null; 
-let gameState = { p1: null, p2: null, turn: 1, started: false };
-let currentMode = 'IDLE', selectedCards = [];
+let gameState = { p1: null, p2: null, turn: 1, started: false, ruleMode: null };
+let myStyles = [], oppReady = false, myReady = false, currentMode = 'IDLE', selectedCards = [];
 
 peer = new Peer();
 peer.on('open', id => { document.getElementById('my-id-display').innerText = "ID: " + id; document.getElementById('status').innerText = "準備完了"; });
 peer.on('connection', c => { conn = c; isHost = true; myRole = 'p1'; setupConn(); });
 
-function hostGame() { document.getElementById('setup-controls').innerText = "待機中..."; }
+function hostGame() { document.getElementById('setup-controls').innerText = "相手の接続を待機中..."; }
 function joinGame() { const id = document.getElementById('join-id').value; if(id) { conn = peer.connect(id); isHost = false; myRole = 'p2'; setupConn(); } }
 
 function setupConn() {
     conn.on('open', () => {
         document.getElementById('connection-panel').style.display = 'none';
         document.getElementById('mode-selection-modal').style.display = 'flex';
-        if(!isHost) document.getElementById('mode-options').style.display = 'none';
-        if(!isHost) document.getElementById('guest-wait-msg').style.display = 'block';
+        if(!isHost) {
+            document.getElementById('mode-options').style.display = 'none';
+            document.getElementById('guest-wait-msg').style.display = 'block';
+        }
     });
     conn.on('data', data => handleData(data));
 }
 
 function handleData(data) {
-    if(data.type === 'RULE_SELECT') {
-        gameState.ruleMode = data.payload;
-        document.getElementById('mode-selection-modal').style.display = 'none';
-        if(gameState.ruleMode === 'style') { document.getElementById('setup-modal').style.display = 'flex'; }
-        else if(isHost) initGame();
-    }
-    if(data.type === 'SYNC') { 
-        gameState = data.payload; 
-        if(gameState.started) { showGameBoardUI(); updateUI(); }
-    }
-    if(data.type === 'ACTION' && isHost) {
-        if(data.payload.type === 'END_TURN') endTurn();
-        else executeAction(data.payload.type, data.payload.params);
-        sync();
+    if(!data) return;
+    switch(data.type) {
+        case 'RULE_SELECT':
+            gameState.ruleMode = data.payload;
+            document.getElementById('mode-selection-modal').style.display = 'none';
+            if(gameState.ruleMode === 'style') {
+                document.getElementById('setup-modal').style.display = 'flex';
+                renderStyleSelection();
+            } else if(isHost) {
+                initGame();
+            }
+            break;
+        case 'READY_STYLES':
+            oppReady = true;
+            if(isHost && myReady) initGame();
+            break;
+        case 'SYNC':
+            gameState = data.payload;
+            if(gameState.started) {
+                transitionToGame();
+                updateUI();
+            }
+            break;
+        case 'ACTION':
+            if(isHost) {
+                if(data.payload.type === 'END_TURN') endTurn();
+                else executeAction(data.payload.type, data.payload.params);
+                sync();
+            }
+            break;
     }
 }
 
-function requestRuleMode(m) { if(isHost) { send('RULE_SELECT', m); handleData({type:'RULE_SELECT', payload:m}); } }
+function transitionToGame() {
+    // 全てのモーダルを閉じる
+    document.getElementById('mode-selection-modal').style.display = 'none';
+    document.getElementById('setup-modal').style.display = 'none';
+    // ゲーム画面を表示
+    document.getElementById('game-board').style.display = 'flex';
+    document.getElementById('game-controls').style.display = 'flex';
+    document.getElementById('game-log').style.display = 'block';
+}
+
+function requestRuleMode(m) {
+    if(!isHost) return;
+    gameState.ruleMode = m;
+    send('RULE_SELECT', m);
+    handleData({type:'RULE_SELECT', payload: m});
+}
 
 function initGame() {
+    if(!isHost) return;
     gameState.started = true;
-    gameState.p1 = { deck: createDeck(['S', 'H']), hand: [], field: [], ap: 0 };
-    gameState.p2 = { deck: createDeck(['C', 'D']), hand: [], field: [], ap: 0 };
-    for(let i=0; i<3; i++) { 
-        if(gameState.p1.deck.length > 0) gameState.p1.hand.push(gameState.p1.deck.pop()); 
-        if(gameState.p2.deck.length > 0) gameState.p2.hand.push(gameState.p2.deck.pop()); 
+    gameState.p1 = { deck: createDeck(['S', 'H']), hand: [], field: [], ap: 0, styles: myStyles };
+    gameState.p2 = { deck: createDeck(['C', 'D']), hand: [], field: [], ap: 0, styles: [] }; // スタイル同期は今回簡易化
+    for(let i=0; i<3; i++) {
+        if(gameState.p1.deck.length > 0) gameState.p1.hand.push(gameState.p1.deck.pop());
+        if(gameState.p2.deck.length > 0) gameState.p2.hand.push(gameState.p2.deck.pop());
     }
     gameState.turn = 1;
+    transitionToGame();
     startTurn();
 }
 
 function startTurn() {
+    if(!isHost) return;
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     for(let i=0; i<2; i++) if(p.deck.length > 0) p.hand.push(p.deck.pop());
     p.ap = Math.min(p.hand.length, 10);
@@ -155,23 +197,19 @@ function startTurn() {
 function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
 function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
 
-function showGameBoardUI() {
-    document.getElementById('mode-selection-modal').style.display = 'none';
-    document.getElementById('setup-modal').style.display = 'none';
-    document.getElementById('game-board').style.display = 'flex';
-    document.getElementById('game-controls').style.display = 'flex';
-    document.getElementById('game-log').style.display = 'block';
-}
-
 function updateUI() {
     if(!gameState.started || !gameState.p1 || !gameState.p2) return;
+    
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
 
-    document.getElementById('my-deck').innerText = me.deck.length;
-    document.getElementById('my-ap').innerText = me.ap;
-    document.getElementById('opp-deck').innerText = opp.deck.length;
-    document.getElementById('opp-ap').innerText = opp.ap;
+    // 要素の存在チェックをしながら更新
+    const safeSetText = (id, text) => { const el = document.getElementById(id); if(el) el.innerText = text; };
+    
+    safeSetText('my-deck', me.deck.length);
+    safeSetText('my-ap', me.ap);
+    safeSetText('opp-deck', opp.deck.length);
+    safeSetText('opp-ap', opp.ap);
 
     renderCards('my-hand', me.hand, false, 'me', 'hand');
     renderCards('my-field', me.field, false, 'me', 'field');
@@ -179,20 +217,27 @@ function updateUI() {
     renderCards('opp-field', opp.field, false, 'opp', 'field');
 
     const myTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
-    document.getElementById('my-area').className = 'player-area' + (myTurn ? ' active-area' : '');
-    document.getElementById('opp-area').className = 'player-area' + (!myTurn ? ' active-area' : '');
+    const myArea = document.getElementById('my-area');
+    if(myArea) myArea.className = 'player-area' + (myTurn ? ' active-area' : '');
+    const oppArea = document.getElementById('opp-area');
+    if(oppArea) oppArea.className = 'player-area' + (!myTurn ? ' active-area' : '');
 
-    // 安全に直接攻撃ボタンを操作
     const directBtn = document.getElementById('direct-btn');
     if(directBtn) {
         directBtn.style.display = (myTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
     }
+
+    // ボタンのアクティブ表示
+    ['SUMMON', 'ATTACK', 'WITHDRAW'].forEach(m => {
+        const btn = document.getElementById(`btn-${m}`);
+        if(btn) { if(currentMode === m) btn.classList.add('active-mode'); else btn.classList.remove('active-mode'); }
+    });
 }
 
 function renderCards(id, cards, isBack, owner, area) {
     const container = document.getElementById(id); 
     if(!container) return;
-    container.innerHTML = ''; // ここで中身を空にしても direct-btn は外にあるので安全
+    container.innerHTML = ''; 
     if(!cards) return;
     cards.forEach((c, i) => {
         const div = document.createElement('div');
@@ -208,11 +253,13 @@ function renderCards(id, cards, isBack, owner, area) {
 }
 
 function handleCardClick(owner, area, idx) {
-    if(gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
+    const myTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
+    if(!myTurn) return;
+
     if(owner === 'me') {
         if(currentMode === 'SUMMON' && area === 'hand') requestAction('SUMMON', {idx});
-        if(currentMode === 'WITHDRAW' && area === 'field') requestAction('WITHDRAW', {idx});
-        if(currentMode === 'ATTACK' && area === 'field') {
+        else if(currentMode === 'WITHDRAW' && area === 'field') requestAction('WITHDRAW', {idx});
+        else if(currentMode === 'ATTACK' && area === 'field') {
             if(selectedCards.includes(idx)) selectedCards = selectedCards.filter(i => i !== idx);
             else selectedCards.push(idx);
             updateUI();
@@ -223,41 +270,76 @@ function handleCardClick(owner, area, idx) {
     }
 }
 
-function requestAction(type, params) { if(isHost) { executeAction(type, params); sync(); } else { send('ACTION', {type, params}); } }
+function requestAction(type, params) { 
+    if(isHost) { executeAction(type, params); sync(); } 
+    else { send('ACTION', {type, params}); } 
+}
 
 function executeAction(type, params) {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
-    if(type === 'SUMMON' && p.ap > 0) { p.field.push(p.hand.splice(params.idx, 1)[0]); p.ap--; }
-    else if(type === 'WITHDRAW') {
+    if(type === 'SUMMON' && p.ap > 0) {
+        p.field.push(p.hand.splice(params.idx, 1)[0]); p.ap--;
+    } else if(type === 'WITHDRAW') {
         const c = p.field.splice(params.idx, 1)[0];
         const cost = c.tapped ? 2 : 1;
-        if(p.ap >= cost) { p.deck.unshift(c); p.ap -= cost; } else p.field.splice(params.idx, 0, c);
-    }
-    else if(type === 'COMBAT' && p.ap > 0) {
+        if(p.ap >= cost) { p.deck.unshift(c); p.ap -= cost; } 
+        else { p.field.splice(params.idx, 0, c); }
+    } else if(type === 'COMBAT' && p.ap > 0) {
         const attackers = params.atkIdxs.map(i => p.field[i]);
         const defender = opp.field[params.defIdx];
         attackers.forEach(c => c.tapped = true); p.ap--;
         const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
         if(attackers[0].red !== defender.red || atkPower >= defender.rank) {
             opp.field.splice(params.defIdx, 1);
-            if(attackers[0].red === defender.red) { if(opp.deck.length>0) opp.hand.push(opp.deck.pop()); }
+            if(attackers[0].red === defender.red) if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
         }
-    }
-    else if(type === 'DIRECT' && p.ap > 0) {
+    } else if(type === 'DIRECT' && p.ap > 0) {
         params.idxs.forEach(i => p.field[i].tapped = true);
-        p.ap--; 
-        for(let i=0; i<2; i++) if(opp.deck.length>0) opp.hand.push(opp.deck.pop());
+        p.ap--;
+        for(let i=0; i<2; i++) if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
     }
 }
 
-function executeDirectAttack() { if(selectedCards.length > 0) { requestAction('DIRECT', {idxs: selectedCards}); selectedCards = []; currentMode = 'IDLE'; } }
-function endTurn() { if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; selectedCards = []; }
-function setMode(m) { currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; updateUI(); }
+function readyWithStyles() {
+    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
+    myReady = true;
+    send('READY_STYLES', { styles: myStyles });
+    document.getElementById('style-ready-btn').style.display = 'none';
+    document.getElementById('waiting-msg').style.display = 'block';
+    if(isHost && oppReady) initGame();
+}
+
+function endTurn() { 
+    if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } 
+    else { send('ACTION', {type:'END_TURN'}); } 
+    currentMode = 'IDLE'; selectedCards = []; 
+}
+
+function setMode(m) { 
+    currentMode = (currentMode === m) ? 'IDLE' : m; 
+    selectedCards = []; 
+    updateUI(); 
+}
+
+function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards}); selectedCards = []; currentMode = 'IDLE'; }
+
 function createDeck(suits) { 
     let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); });
     d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false});
     return d.sort(() => Math.random() - 0.5); 
+}
+
+function renderStyleSelection() {
+    const list = document.getElementById('style-list'); 
+    if(!list) return;
+    list.innerHTML = '';
+    STYLES_DEF.forEach(s => {
+        const div = document.createElement('div'); div.className = 'style-option';
+        div.innerHTML = `<input type="checkbox" class="style-check" value="${s.id}" data-sp="${s.sp}">
+                         <div style="margin-left:5px;"><b>${s.name}</b>(${s.sp})<br>${s.desc}</div>`;
+        list.appendChild(div);
+    });
 }
 </script>
 </body>
