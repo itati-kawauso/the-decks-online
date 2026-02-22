@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v7.0</title>
+    <title>THE DECKS Online v8.0</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -13,8 +13,11 @@
         .player-area { border: 2px solid #7f8c8d; padding: 10px; border-radius: 10px; background: #34495e; position: relative; transition: 0.3s; }
         .active-area { border-color: #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
         .stats { display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; font-size: 13px;}
-        .active-styles { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; min-height: 20px; justify-content: center; }
-        .style-chip { background: #f1c40f; color: #000; font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+        
+        /* 採用ルールの常時表示スタイル */
+        .style-display { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; justify-content: center; min-height: 20px; }
+        .style-chip { background: #f1c40f; color: #000; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; cursor: help; border: 1px solid #d4ac0d; position: relative; }
+        
         .field, .hand { display: flex; flex-wrap: wrap; gap: 8px; min-height: 110px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-top: 5px; align-items: center; justify-content: center;}
         .card { width: 60px; height: 85px; background: white; color: black; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 3px solid transparent; user-select: none; transition: 0.2s; position: relative; }
         .card.red { color: #e74c3c; }
@@ -24,29 +27,30 @@
         .card.spell-main { border-color: #9b59b6; box-shadow: 0 0 15px #9b59b6; }
         .card.can-target { border-color: #e67e22; animation: blink 0.8s infinite; }
         @keyframes blink { 0% { box-shadow: 0 0 5px #e67e22; } 50% { box-shadow: 0 0 15px #e67e22; } 100% { box-shadow: 0 0 5px #e67e22; } }
+        
         .suit { font-size: 20px; }
         .controls { margin: 15px; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
-        .log-container { width: 95%; max-width: 1000px; height: 160px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
+        .log-container { width: 95%; max-width: 1000px; height: 180px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
         .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 11px; border-bottom: 1px solid #222; }
         .log-sys { color: #00ff00; }
         .log-atk { color: #ff4d4d; font-weight: bold; }
         .log-spl { color: #9b59b6; }
-        .log-err { color: #ff0; background: #800; }
+        
         button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         button.primary { background: #f1c40f; color: #000; }
         button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
-        .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; max-height: 90vh; overflow-y: auto;}
-        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; width: 500px;}
-        .style-option { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; display: flex; align-items: center; font-size: 11px; text-align: left;}
+        .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; max-height: 90vh; overflow-y: auto; width: 500px;}
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; }
+        .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
         .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; border: 2px solid white;}
-        .rule-view { text-align: left; font-size: 12px; line-height: 1.6; max-width: 600px; color: #eee;}
     </style>
 </head>
 <body>
 
-<h1>THE DECKS Online v7.0</h1>
+<h1>THE DECKS Online v8.0</h1>
 
 <div id="connection-panel">
     <div id="status">Peer準備中...</div>
@@ -60,6 +64,7 @@
     </div>
 </div>
 
+<!-- ルール選択 -->
 <div id="mode-selection-modal" class="modal">
     <div class="modal-content">
         <h2>ルール設定</h2>
@@ -71,58 +76,47 @@
     </div>
 </div>
 
+<!-- スタイル選択 -->
 <div id="setup-modal" class="modal">
     <div class="modal-content">
-        <h2>スタイル選択 (SP上限: 4)</h2>
-        <p>残りSP: <span id="remaining-sp">4</span></p>
+        <h2>スタイル選択 (残りSP: <span id="remaining-sp">4</span>)</h2>
         <div id="style-list" class="style-grid"></div>
         <button id="style-ready-btn" class="primary" onclick="readyWithStyles()">準備完了</button>
         <p id="waiting-msg" style="display:none; color:#f1c40f;">相手の準備を待っています...</p>
     </div>
 </div>
 
-<!-- 基本ルール参照用モーダル -->
-<div id="rule-book-modal" class="modal">
-    <div class="modal-content">
-        <h2>THE DECKS 基本ルール</h2>
-        <div class="rule-view">
-            <p><b>■ 勝利条件:</b> ターン開始時に山札から引けなくなったプレイヤーの敗北。</p>
-            <p><b>■ ターンの流れ:</b><br>
-            1. ドロー: 2枚引く。全員アンタップ。<br>
-            2. AP獲得: 手札枚数=AP(最大10)。<br>
-            3. メイン: 招集(1AP)/攻撃(1AP)/スペル(1AP+コスト)/撤退(1AP)</p>
-            <p><b>■ 戦闘:</b><br>
-            ・数値が大きい方が勝ち。同色は相手に1ダメ。<br>
-            ・同色タイ: 両者破壊、相手に1ダメ。<br>
-            ・異色: 数値に関わらず相手破壊(0ダメ)。</p>
-            <p><b>■ スペル:</b><br>
-            ・黒: 相手兵士1体破壊。<br>
-            ・赤: 1ドロー または トラッシュから1枚回収。<br>
-            ・ジョーカー: コスト0。赤・黒両方選択可。</p>
-        </div>
-        <button class="primary" onclick="closeModal('rule-book-modal')">閉じる</button>
-    </div>
-</div>
-
+<!-- スペル解決・各種モーダル -->
 <div id="joker-modal" class="modal"><div class="modal-content"><h3>JOKER属性選択</h3><button class="primary" onclick="resolveJoker('red')">赤として使う</button><button class="primary" onclick="resolveJoker('black')">黒として使う</button></div></div>
 <div id="red-spell-modal" class="modal"><div class="modal-content"><h3>効果選択</h3><button class="primary" onclick="resolveRedChoice('DRAW')">1ドロー</button><button class="primary" onclick="resolveRedChoice('RECOVER')">墓地回収</button></div></div>
 <div id="trash-modal" class="modal"><div class="modal-content"><h3>回収カード選択</h3><div id="trash-display" class="trash-list"></div></div></div>
-<div id="bounce-modal" class="modal"><div class="modal-content"><h3>9パンチ：バウンス対象を選択</h3><div id="bounce-display" class="trash-list"></div></div></div>
-<div id="game-over-modal" class="modal"><div class="modal-content"><h2 id="winner-text">GAME OVER</h2><button class="primary" onclick="location.reload()">タイトルへ</button></div></div>
+<div id="bounce-modal" class="modal"><div class="modal-content"><h3>対象を選択(バウンス)</h3><div id="bounce-display" class="trash-list"></div></div></div>
+
+<div id="game-over-modal" class="modal">
+    <div class="modal-content">
+        <h2 id="winner-text">GAME OVER</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="primary" onclick="requestRestart()">同じルームで再戦</button>
+            <button onclick="location.reload()">タイトルへ戻る</button>
+        </div>
+    </div>
+</div>
 
 <div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px; margin-bottom:5px;"></div>
 
 <div id="game-board">
     <div id="opp-area" class="player-area">
         <div class="stats">ENEMY | Deck: <span id="opp-deck">0</span> | AP: <span id="opp-ap">0</span> | Trash: <span id="opp-trash">0</span></div>
-        <div id="opp-styles-display" class="active-styles"></div>
+        <!-- 採用ルールの表示エリア -->
+        <div id="opp-styles-display" class="style-display"></div>
         <button id="direct-btn" class="direct-attack-btn" onclick="executeDirectAttack()">直接攻撃！</button>
         <div id="opp-field" class="field"></div>
         <div id="opp-hand" class="hand"></div>
     </div>
     <div id="my-area" class="player-area">
         <div class="stats">YOU | Deck: <span id="my-deck">0</span> | AP: <span id="my-ap">0</span> | Trash: <span id="my-trash">0</span></div>
-        <div id="my-styles-display" class="active-styles"></div>
+        <!-- 採用ルールの表示エリア -->
+        <div id="my-styles-display" class="style-display"></div>
         <div id="my-field" class="field"></div>
         <div id="my-hand" class="hand"></div>
     </div>
@@ -134,8 +128,7 @@
     <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
     <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退</button>
     <button class="primary" id="btn-END" onclick="endTurn()">ターン終了</button>
-    <button style="background: #3498db; color: white;" onclick="showRuleBook()">ルール参照</button>
-    <button style="background: #e74c3c; color: white;" onclick="requestRestart()" id="btn-RESTART">再起動</button>
+    <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルールブック</button>
 </div>
 <div id="game-log" class="log-container"></div>
 
@@ -143,21 +136,21 @@
 const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
 const STYLES_DEF = [
     {id:"aceShot", name:"エースショット", sp:1, desc:"A撤退時相手に3ダメ"},
-    {id:"bukkumi2", name:"ぶっこみツー", sp:1, desc:"2で撃破時AP+1"},
-    {id:"spy3", name:"スパイスリー", sp:1, desc:"3で攻撃時相手手札公開"},
+    {id:"bukkumi2", name:"ぶっこみツー", sp:1, desc:"2で敵撃破時AP+1"},
+    {id:"spy3", name:"スパイスリー", sp:1, desc:"3で攻撃時相手手札確認"},
     {id:"shield4", name:"盾の四", sp:1, desc:"4がいる限り他は攻撃不可"},
-    {id:"bond5", name:"5の結束", sp:1, desc:"5が2体以上で数値10"},
+    {id:"bond5", name:"5の結束", sp:1, desc:"5が2体いれば数値10"},
     {id:"barikata6", name:"バリカタシックス", sp:1, desc:"6は同色/JOK/黒スペ以外不壊"},
-    {id:"lucky7", name:"ラッキーセブン", sp:1, desc:"7攻撃時トラッシュ1枚を山札底へ"},
-    {id:"noCost8", name:"ノーコスエイト", sp:1, desc:"8スペルコスト0"},
-    {id:"punch9", name:"ナインパンチ", sp:1, desc:"9招集時1APで相手をバウンス"},
+    {id:"lucky7", name:"ラッキーセブン", sp:1, desc:"7攻撃時デッキ1回復"},
+    {id:"noCost8", name:"ノーコスエイト", sp:1, desc:"8スペルがコスト0"},
+    {id:"punch9", name:"ナインパンチ", sp:1, desc:"9招集時1APでバウンス"},
     {id:"heavy10", name:"十の重圧", sp:2, desc:"敵協力戦に+1AP要求"},
-    {id:"assassinJ", name:"アサシンジャック", sp:1, desc:"Jの攻撃AP消費0"},
-    {id:"queenOrder", name:"クイーンズオーダー", sp:1, desc:"Qスペル時相手に2ダメ"},
-    {id:"kingAura", name:"王の威圧", sp:3, desc:"敵招集に2AP要求"},
-    {id:"suitSync", name:"スート連携", sp:2, desc:"全員同スートなら数値+2"},
+    {id:"assassinJ", name:"アサシンジャック", sp:1, desc:"Jの攻撃が0AP"},
+    {id:"queenOrder", name:"クイーンズオーダー", sp:1, desc:"Qスペル時2ダメ"},
+    {id:"kingAura", name:"王의威圧", sp:3, desc:"敵招集に2AP要求"},
+    {id:"suitSync", name:"スート連携", sp:2, desc:"4枚同スートなら数値+2"},
     {id:"blackCurse", name:"黒の呪い", sp:3, desc:"黒スペル破壊時1ダメ"},
-    {id:"redHeal", name:"赤の癒し", sp:3, desc:"赤スペル時トラッシュ1枚を山札底へ"}
+    {id:"redHeal", name:"赤の癒し", sp:3, desc:"赤スペル使用時1枚回復"}
 ];
 
 let peer, conn, isHost = false, myRole = null; 
@@ -166,10 +159,13 @@ let myStyles = [], oppStyles = [], myReady = false, oppReady = false;
 let currentMode = 'IDLE', selectedCards = [], spellMainIdx = null;
 
 peer = new Peer();
-peer.on('open', id => { document.getElementById('my-id-display').innerText = "あなたのID: " + id; document.getElementById('status').innerText = "接続準備完了"; });
+peer.on('open', id => { 
+    document.getElementById('my-id-display').innerText = "あなたのID: " + id; 
+    document.getElementById('status').innerText = "接続準備完了"; 
+});
 peer.on('connection', c => { conn = c; isHost = true; myRole = 'p1'; setupConn(); });
 
-function hostGame() { document.getElementById('status').innerText = "相手を待っています..."; }
+function hostGame() { document.getElementById('status').innerText = "待機中..."; }
 function joinGame() { const id = document.getElementById('join-id').value; if(id) { conn = peer.connect(id); isHost = false; myRole = 'p2'; setupConn(); } }
 
 function setupConn() {
@@ -204,15 +200,17 @@ function handleData(data) {
             writeLog(data.payload.msg, data.payload.type);
             break;
         case 'ACTION':
-            if(isHost && !gameState.gameOver) {
+            if(isHost) {
                 if(data.payload.type === 'END_TURN') endTurn();
-                else if(data.payload.type === 'RESTART') initGame();
+                else if(data.payload.type === 'RESTART') { document.getElementById('mode-selection-modal').style.display='flex'; }
                 else executeAction(data.payload.type, data.payload.params);
                 sync();
             }
             break;
     }
 }
+
+function requestRuleMode(m) { if(isHost) { send('RULE_SELECT', m); handleData({type:'RULE_SELECT', payload:m}); } }
 
 function renderStyleSelection() {
     const list = document.getElementById('style-list'); list.innerHTML = '';
@@ -242,41 +240,24 @@ function initGame() {
     gameState.started = true; gameState.gameOver = false;
     gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles };
     gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles };
-    for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
+    for(let i=0; i<3; i++) { 
+        if(gameState.p1.deck.length > 0) gameState.p1.hand.push(gameState.p1.deck.pop()); 
+        if(gameState.p2.deck.length > 0) gameState.p2.hand.push(gameState.p2.deck.pop()); 
+    }
     gameState.turn = 1;
-    showGameBoardUI(); logToBoth("--- GAME START ---", "sys"); startTurn();
+    showGameBoardUI();
+    logToBoth("--- GAME START ---", "sys");
+    startTurn();
 }
 
 function startTurn() {
     if(!isHost) return;
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    for(let i=0; i<2; i++) { if(p.deck.length > 0) p.hand.push(p.deck.pop()); else { finishGame(p.name + " 山札切れ！"); return; } }
+    for(let i=0; i<2; i++) { if(p.deck.length > 0) p.hand.push(p.deck.pop()); else { finishGame(p.name + " 敗北(山札切れ)！"); return; } }
     p.ap = Math.min(p.hand.length, 10);
     p.field.forEach(c => c.tapped = false);
-    logToBoth(`--- ${p.name} のターン (AP:${p.ap}) ---`, "sys"); sync();
-}
-
-function finishGame(msg) { gameState.gameOver = true; logToBoth(msg, "err"); sync(); }
-function showGameOver() { document.getElementById('game-over-modal').style.display = 'flex'; }
-function showGameBoardUI() { document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal','rule-book-modal'].includes(m.id)) m.style.display='none'; }); document.getElementById('game-board').style.display='flex'; document.getElementById('game-controls').style.display='flex'; document.getElementById('game-log').style.display='block'; }
-function writeLog(msg, type) { const logDiv = document.getElementById('game-log'); const entry = document.createElement('div'); entry.className = `log-entry log-${type}`; entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`; logDiv.insertBefore(entry, logDiv.firstChild); }
-function logToBoth(msg, type) { writeLog(msg, type); if(isHost) send('LOG', { msg, type }); }
-function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
-function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
-
-function getEffectiveRank(card, player) {
-    if(card.isJoker) return 14;
-    let rank = card.rank;
-    // 5の結束
-    if(rank === 5 && player.styles.includes('bond5')) {
-        if(player.field.filter(c => c.rank === 5).length >= 2) rank = 10;
-    }
-    // スート連携
-    if(player.styles.includes('suitSync') && player.field.length >= 2) {
-        const firstSuit = player.field[0].suit;
-        if(player.field.every(c => c.suit === firstSuit)) rank += 2;
-    }
-    return rank;
+    logToBoth(`--- ${p.name} ターン開始 (AP:${p.ap}) ---`, "sys");
+    sync();
 }
 
 function updateUI() {
@@ -288,26 +269,45 @@ function updateUI() {
     document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length;
     document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length;
 
-    renderCards('my-hand', me.hand, false, 'me', 'hand', me); 
-    renderCards('my-field', me.field, false, 'me', 'field', me); 
-    renderCards('opp-hand', opp.hand, true, 'opp', 'hand', opp); 
+    renderCards('my-hand', me.hand, false, 'me', 'hand', me);
+    renderCards('my-field', me.field, false, 'me', 'field', me);
+    renderCards('opp-hand', opp.hand, true, 'opp', 'hand', opp);
     renderCards('opp-field', opp.field, false, 'opp', 'field', opp);
 
-    renderStyles('my-styles-display', me.styles);
-    renderStyles('opp-styles-display', opp.styles);
+    // 採用ルールのチップ表示
+    renderStyleChips('my-styles-display', me.styles);
+    renderStyleChips('opp-styles-display', opp.styles);
 
     document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
     document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
     document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
 
-    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
-    btns.forEach(id => { const b = document.getElementById('btn-' + id); b.disabled = !isMyTurn || gameState.gameOver; if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL'))) b.classList.add('active-mode'); else b.classList.remove('active-mode'); });
+    ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'].forEach(id => {
+        const b = document.getElementById('btn-' + (id==='END'?'END':id));
+        b.disabled = !isMyTurn || gameState.gameOver;
+        if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL_'))) b.classList.add('active-mode'); else b.classList.remove('active-mode');
+    });
+}
+
+function renderStyleChips(id, styles) {
+    const container = document.getElementById(id); container.innerHTML = '';
+    styles.forEach(sid => {
+        const s = STYLES_DEF.find(x => x.id === sid);
+        if(s) {
+            const chip = document.createElement('div');
+            chip.className = 'style-chip';
+            chip.innerText = s.name;
+            chip.title = s.desc; // ホバーで説明を表示
+            container.appendChild(chip);
+        }
+    });
 }
 
 function renderCards(id, cards, isBack, owner, area, playerObj) {
     const container = document.getElementById(id); container.innerHTML = '';
     cards.forEach((c, i) => {
-        const div = document.createElement('div'); div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
+        const div = document.createElement('div');
+        div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
         if(!isBack) {
             if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main');
             if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected');
@@ -315,17 +315,19 @@ function renderCards(id, cards, isBack, owner, area, playerObj) {
             let rank = getEffectiveRank(c, playerObj);
             div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${c.isJoker?'JOK':(rank===1?'A':(rank===11?'J':(rank===12?'Q':(rank===13?'K':rank))))}</div>`;
         }
-        div.onclick = () => handleCardClick(owner, area, i); container.appendChild(div);
+        div.onclick = () => handleCardClick(owner, area, i);
+        container.appendChild(div);
     });
 }
 
-function renderStyles(id, styles) {
-    const container = document.getElementById(id); container.innerHTML = '';
-    styles.forEach(sid => {
-        const s = STYLES_DEF.find(x => x.id === sid);
-        const span = document.createElement('span'); span.className = 'style-chip'; span.innerText = s.name; span.title = s.desc;
-        container.appendChild(span);
-    });
+function getEffectiveRank(card, player) {
+    if(card.isJoker) return 14;
+    let rank = card.rank;
+    if(rank === 5 && player.styles.includes('bond5') && player.field.filter(x=>x.rank===5).length >= 2) rank = 10;
+    if(player.styles.includes('suitSync') && player.field.length >= 2) {
+        if(player.field.every(x => x.suit === player.field[0].suit)) rank += 2;
+    }
+    return rank;
 }
 
 function handleCardClick(owner, area, idx) {
@@ -335,38 +337,46 @@ function handleCardClick(owner, area, idx) {
 
     if(owner === 'me') {
         if(currentMode === 'SUMMON' && area === 'hand') {
-            let cost = (opp.field.some(c => c.rank === 13) && opp.styles.includes('kingAura')) ? 2 : 1;
-            if(me.field.length < 4 && me.ap >= cost) { requestAction('SUMMON', {idx, cost}); resetMode(); }
+            const summonCost = (opp.field.some(x=>x.rank===13) && opp.styles.includes('kingAura')) ? 2 : 1;
+            if(me.field.length < 4 && me.ap >= summonCost) { requestAction('SUMMON', {idx, cost: summonCost}); resetMode(); }
         }
         else if(currentMode === 'WITHDRAW' && area === 'field') {
-            if(me.ap >= (me.field[idx].tapped?2:1)) { requestAction('WITHDRAW', {idx}); resetMode(); }
+            const cost = me.field[idx].tapped ? 2 : 1;
+            if(me.ap >= cost) { requestAction('WITHDRAW', {idx}); resetMode(); }
         }
         else if(currentMode === 'ATTACK' && area === 'field') {
-            if(!me.field[idx].tapped) { const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field'); if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area:'field'}); updateUI(); }
+            if(!me.field[idx].tapped) {
+                const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field');
+                if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area:'field'});
+                updateUI();
+            }
         }
         else if(currentMode === 'SPELL' && area === 'hand') {
-            if(me.ap >= 1) { spellMainIdx = idx; const card = me.hand[idx]; if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []}); handleSpellFollowUp(card); } else { currentMode = 'SPELL_COST'; updateUI(); } }
+            if(me.ap >= 1) {
+                spellMainIdx = idx; const card = me.hand[idx];
+                if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) {
+                    requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []}); handleSpellFollowUp(card);
+                } else currentMode = 'SPELL_COST';
+            }
         }
         else if(currentMode === 'SPELL_COST') {
             if(area === 'hand' && idx === spellMainIdx) return;
             const exist = selectedCards.findIndex(s => s.idx === idx && s.area === area);
             if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area});
             const total = selectedCards.reduce((s, it) => s + me[it.area][it.idx].rank, 0);
-            if(total >= me.hand[spellMainIdx].rank - 1) { const card = me.hand[spellMainIdx]; requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards}); handleSpellFollowUp(card); } else updateUI();
+            if(total >= me.hand[spellMainIdx].rank - 1) {
+                const card = me.hand[spellMainIdx]; requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards}); handleSpellFollowUp(card);
+            } else updateUI();
         }
     } else {
         if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) {
-            let addCost = (selectedCards.length > 1 && opp.field.some(c=>c.rank===10) && opp.styles.includes('heavy10')) ? 1 : 0;
-            let baseCost = (selectedCards.every(s => me.field[s.idx].rank === 11) && me.styles.includes('assassinJ')) ? 0 : 1;
-            if(me.ap >= (baseCost + addCost)) {
-                // 盾の四チェック
-                if(opp.field.some(c=>c.rank===4 && opp.styles.includes('shield4')) && opp.field[idx].rank !== 4) return writeLog("盾の四が守っています", "err");
-                requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx, apCost: (baseCost + addCost)}); resetMode();
-            }
+            // 盾の四判定
+            if(opp.field.some(x=>x.rank===4 && opp.styles.includes('shield4')) && opp.field[idx].rank !== 4) { return writeLog("盾の四を先に攻撃してください", "spl"); }
+            let baseAP = (selectedCards.every(s=>me.field[s.idx].rank===11) && me.styles.includes('assassinJ')) ? 0 : 1;
+            let addAP = (selectedCards.length > 1 && opp.field.some(x=>x.rank===10) && opp.styles.includes('heavy10')) ? 1 : 0;
+            if(me.ap >= (baseAP+addAP)) { requestAction('COMBAT', {atkIdxs: selectedCards.map(s=>s.idx), defIdx: idx, apCost: (baseAP+addAP)}); resetMode(); }
         }
-        else if(currentMode === 'SPELL_TARGET' && area === 'field') {
-            requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode();
-        }
+        else if(currentMode === 'SPELL_TARGET' && area === 'field') { requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode(); }
     }
 }
 
@@ -378,78 +388,84 @@ function handleSpellFollowUp(card) {
 }
 
 function requestAction(type, params) { if(isHost) { executeAction(type, params); sync(); } else send('ACTION', {type, params}); }
+
 function executeAction(type, params) {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2); const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
     if(type === 'SUMMON') {
-        const c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap -= params.cost; logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr");
+        let c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap -= params.cost; logToBoth(`${p.name}: ${getCardName(c)} 招集`, "usr");
         if(c.rank === 9 && p.styles.includes('punch9') && p.ap >= 1 && opp.field.length > 0) { if(myRole === (gameState.turn===1?'p1':'p2')) showBounceModal(opp.field); }
     }
     else if(type === 'WITHDRAW') {
-        const c = p.field.splice(params.idx, 1)[0]; const cost = c.tapped?2:1; c.tapped = false; p.deck.push(c); p.ap -= cost; logToBoth(`${p.name}: ${getCardName(c)} を撤退`, "usr");
-        if(c.rank === 1 && p.styles.includes('aceShot')) { logToBoth("エースショット発動！", "spl"); applyDamage(opp, 3); }
+        let c = p.field.splice(params.idx, 1)[0]; let cost = c.tapped?2:1; c.tapped = false; p.deck.push(c); p.ap -= cost; logToBoth(`${p.name}: ${getCardName(c)} 撤退`, "usr");
+        if(c.rank === 1 && p.styles.includes('aceShot')) applyDamage(opp, 3);
     }
     else if(type === 'COMBAT') {
-        const attackers = params.atkIdxs.map(i => p.field[i]); const defender = opp.field[params.defIdx];
-        const same = attackers[0].red === defender.red && !attackers[0].isJoker;
-        const power = attackers.reduce((s,c)=>s+getEffectiveRank(c, p), 0);
-        const defPower = getEffectiveRank(defender, opp);
-        attackers.forEach(a=>a.tapped=true); p.ap -= params.apCost;
-        if(p.styles.includes('lucky7') && attackers.some(a=>a.rank===7)) { if(p.trash.length>0) p.deck.push(p.trash.pop()); }
-        if(p.styles.includes('spy3') && attackers.some(a=>a.rank===3)) { logToBoth(`${p.name}が偵察：${opp.name}の手札は ${opp.hand.map(h=>getCardName(h)).join(",")}`, "sys"); }
+        const atk = params.atkIdxs.map(i => p.field[i]); const def = opp.field[params.defIdx];
+        const same = atk[0].red === def.red && !atk[0].isJoker;
+        const power = atk.reduce((s,c)=>s+getEffectiveRank(c,p), 0);
+        const dPower = getEffectiveRank(def, opp);
+        atk.forEach(a=>a.tapped=true); p.ap -= params.apCost;
+        if(p.styles.includes('lucky7') && atk.some(x=>x.rank===7)) { if(p.trash.length>0) p.deck.push(p.trash.pop()); }
+        logToBoth(`戦闘: ${atk.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(def)}(${dPower})`, "atk");
         
-        logToBoth(`戦闘: ${attackers.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(defender)}(${defPower}) [${same?'同色':'異色'}]`, "atk");
-        
-        // バリカタシックス判定
-        let canDestroy = true;
-        if(defender.rank === 6 && opp.styles.includes('barikata6') && !same && !attackers.some(a=>a.isJoker)) canDestroy = false;
+        let canKill = true;
+        if(def.rank===6 && opp.styles.includes('barikata6') && !same && !atk.some(x=>x.isJoker)) canKill = false;
 
-        if(canDestroy && (!same || power >= defPower)) {
-            let d=opp.field.splice(params.defIdx,1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${getCardName(d)} を破壊`, "atk");
-            if(same) { applyDamage(opp, 1); if(power === defPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); logToBoth("相打ち！", "atk"); } }
-            if(attackers.some(a=>a.rank === 2) && p.styles.includes('bukkumi2')) p.ap++;
+        if(canKill && (!same || power >= dPower)) {
+            let d = opp.field.splice(params.defIdx, 1)[0]; d.tapped=false; opp.trash.push(d);
+            if(same) { applyDamage(opp, 1); if(power === dPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); } }
+            if(atk.some(x=>x.rank===2) && p.styles.includes('bukkumi2')) p.ap++;
         } else {
-            logToBoth("攻撃失敗！", "atk");
-            if(same && power < defPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); }
+            if(same && power < dPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); }
         }
     }
-    else if(type === 'DIRECT') { params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--; logToBoth(`${p.name}: 直接攻撃！`, "atk"); applyDamage(opp, 2); }
+    else if(type === 'DIRECT') {
+        params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--; logToBoth(`${p.name}: 直接攻撃`, "atk"); applyDamage(opp, 2);
+    }
     else if(type === 'SPELL_MAIN') {
-        const costCards = []; params.costIdxs.sort((a,b)=>b.idx-a.idx).forEach(it=>{ let c=p[it.area].splice(it.idx,1)[0]; c.tapped=false; costCards.push(c); });
-        const main = p.hand.splice(params.idx,1)[0]; main.tapped=false; p.trash.push(main); costCards.forEach(c=>p.trash.push(c)); p.ap--;
+        const costs = []; params.costIdxs.sort((a,b)=>b.idx-a.idx).forEach(it=>{ let c=p[it.area].splice(it.idx,1)[0]; c.tapped=false; costs.push(c); });
+        const main = p.hand.splice(params.idx,1)[0]; main.tapped=false; p.trash.push(main); costs.forEach(c=>p.trash.push(c)); p.ap--;
         logToBoth(`${p.name}: スペル ${getCardName(main)} 発動`, "spl");
         if(main.rank===12 && p.styles.includes('queenOrder')) applyDamage(opp, 2);
     }
     else if(type === 'SPELL_RED_RESOLVE') {
-        if(params.choice==='DRAW') { if(p.deck.length>0) p.hand.push(p.deck.pop()); else finishGame("山札切れ！"); logToBoth(`${p.name}: ドロー`, "spl"); }
-        if(p.styles.includes('redHeal')) { if(p.trash.length>0) p.deck.push(p.trash.pop()); }
+        if(params.choice==='DRAW') { if(p.deck.length>0) p.hand.push(p.deck.pop()); else finishGame("山札切れ！"); logToBoth(`${p.name}: ドローを選択`, "spl"); }
+        if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop());
     }
-    else if(type === 'SPELL_RECOVER_FINISH') { let r=p.trash.splice(params.trashIdx,1)[0]; r.tapped=false; p.hand.push(r); logToBoth(`${p.name}: ${getCardName(r)} を回収`, "spl"); if(p.styles.includes('redHeal')){if(p.trash.length>0)p.deck.push(p.trash.pop());} }
+    else if(type === 'SPELL_RECOVER_FINISH') {
+        let r = p.trash.splice(params.trashIdx, 1)[0]; r.tapped=false; p.hand.push(r); logToBoth(`${p.name}: ${getCardName(r)} を回収`, "spl");
+        if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop());
+    }
     else if(type === 'SPELL_BLACK_RESOLVE') {
-        let d=opp.field.splice(params.targetIdx,1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${p.name}: ${getCardName(d)} を破壊`, "spl");
+        let d = opp.field.splice(params.targetIdx, 1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${p.name}: ${getCardName(d)} 破壊`, "spl");
         if(p.styles.includes('blackCurse')) applyDamage(opp, 1);
     }
-    else if(type === 'BOUNCE') { let d=opp.field.splice(params.idx,1)[0]; d.tapped=false; opp.hand.push(d); p.ap--; logToBoth(`${p.name}: ${getCardName(d)} をバウンス`, "spl"); }
+    else if(type === 'BOUNCE') {
+        let d = opp.field.splice(params.idx, 1)[0]; d.tapped=false; opp.hand.push(d); p.ap--; logToBoth(`${p.name}: バウンス`, "spl");
+    }
 }
 
-function applyDamage(target, amt) { for(let i=0; i<amt; i++) { if(target.deck.length > 0) target.hand.push(target.deck.pop()); else finishGame("山札切れにつき決着！"); } }
-function showBounceModal(field) {
-    const d=document.getElementById('bounce-display'); d.innerHTML='';
-    field.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); }; d.appendChild(v); });
-    document.getElementById('bounce-modal').style.display='flex';
-}
-function resolveJoker(color) { document.getElementById('joker-modal').style.display='none'; if(color==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
-function resolveRedChoice(choice) { document.getElementById('red-spell-modal').style.display='none'; if(choice==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.length===0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
-function showTrashModal(trash) { const d=document.getElementById('trash-display'); d.innerHTML=''; trash.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH', {trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
-function showRuleBook() { document.getElementById('rule-book-modal').style.display='flex'; }
-function closeModal(id) { document.getElementById(id).style.display='none'; }
+function resolveJoker(c) { document.getElementById('joker-modal').style.display='none'; if(c==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
+function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.display='none'; if(c==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.length===0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
+function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
+function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
+
+function openRuleBook() { window.open("https://github.com/itati-kawauso/the-decks-online/blob/main/%F0%9F%83%8F%20%E3%83%88%E3%83%A9%E3%83%B3%E3%83%97%E5%AF%BE%E6%88%A6%E3%82%AB%E3%83%BC%E3%83%89%E3%82%B2%E3%83%BC%E3%83%A0%EF%BC%9A%E3%80%8ETHE%20DECKS%E3%80%8F%E5%AE%8C%E5%85%A8%E7%89%88%E3%83%AB%E3%83%BC%E3%83%AB%E3%83%96%E3%83%83%E3%82%AF.pdf", "_blank"); }
+function finishGame(m) { gameState.gameOver = true; logToBoth(m, "err"); sync(); }
+function showGameOver() { document.getElementById('game-over-modal').style.display = 'flex'; }
+function writeLog(m, t) { const logDiv = document.getElementById('game-log'); const entry = document.createElement('div'); entry.className = `log-entry log-${t}`; entry.innerText = `[${new Date().toLocaleTimeString()}] ${m}`; logDiv.insertBefore(entry, logDiv.firstChild); }
+function logToBoth(m, t) { writeLog(m, t); if(isHost) send('LOG', { msg:m, type:t }); }
+function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
+function send(t, p) { if(conn && conn.open) conn.send({type:t, payload:p}); }
 function resetMode() { currentMode = 'IDLE'; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = ""; updateUI(); }
 function setMode(m) { if(gameState.gameOver) return; currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = "モード: " + currentMode; updateUI(); }
 function endTurn() { if(gameState.gameOver) return; if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); resetMode(); }
+function requestRestart() { if(isHost) { document.getElementById('game-over-modal').style.display='none'; document.getElementById('mode-selection-modal').style.display='flex'; } else send('ACTION', {type:'RESTART'}); }
 function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s => s.idx)}); resetMode(); }
-function requestRestart() { if(confirm("再起動しますか？")) { if(isHost) initGame(); else send('ACTION', {type:'RESTART'}); } }
-function requestRuleMode(m) { if(isHost) { send('RULE_SELECT', m); handleData({type:'RULE_SELECT', payload:m}); } }
+function applyDamage(target, amt) { for(let i=0; i<amt; i++) { if(target.deck.length > 0) target.hand.push(target.deck.pop()); else finishGame(target.name + " 山札切れ！"); } }
 function createDeck(suits) { let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(() => Math.random() - 0.5); }
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
+function showGameBoardUI() { document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal'].includes(m.id)) m.style.display='none'; }); document.getElementById('game-board').style.display='flex'; document.getElementById('game-controls').style.display='flex'; document.getElementById('game-log').style.display='block'; }
 </script>
 </body>
 </html>
