@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v5.1</title>
+    <title>THE DECKS Online v6.0</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -35,16 +35,15 @@
         button.primary { background: #f1c40f; color: #000; }
         button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
-        .modal-content { background: #34495e; padding: 25px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; }
+        .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; }
         .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; max-height: 250px; overflow-y: auto; width: 400px;}
         .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
-        .trash-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; justify-content: center; max-width: 500px; }
         .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; border: 2px solid white;}
     </style>
 </head>
 <body>
 
-<h1>THE DECKS Online v5.1</h1>
+<h1>THE DECKS Online</h1>
 
 <div id="connection-panel">
     <div id="status">Peer準備中...</div>
@@ -63,7 +62,7 @@
         <h2>ルール設定</h2>
         <div id="mode-options" style="display: flex; gap: 10px; justify-content: center;">
             <button class="primary" onclick="requestRuleMode('basic')">基本ルールのみ</button>
-            <button class="primary" onclick="requestRuleMode('style')">採用型(スタイルあり)</button>
+            <button class="primary" onclick="requestRuleMode('style')">採用型ルールあり</button>
         </div>
         <p id="guest-wait-msg" style="display:none; color:#f1c40f; margin-top:20px;">ホストのルール選択を待っています...</p>
     </div>
@@ -78,36 +77,10 @@
     </div>
 </div>
 
-<!-- スペル解決フロー -->
-<div id="joker-modal" class="modal">
-    <div class="modal-content">
-        <h3>JOKERの属性を選択</h3>
-        <button class="primary" onclick="resolveJoker('red')">赤(ドロー/回収)</button>
-        <button class="primary" onclick="resolveJoker('black')">黒(破壊)</button>
-    </div>
-</div>
-
-<div id="red-spell-modal" class="modal">
-    <div class="modal-content">
-        <h3>赤スペルの効果選択</h3>
-        <button class="primary" onclick="resolveRedChoice('DRAW')">1ドロー</button>
-        <button class="primary" onclick="resolveRedChoice('RECOVER')">墓地回収</button>
-    </div>
-</div>
-
-<div id="trash-modal" class="modal">
-    <div class="modal-content">
-        <h3>回収カードを選択</h3>
-        <div id="trash-display" class="trash-list"></div>
-    </div>
-</div>
-
-<div id="game-over-modal" class="modal">
-    <div class="modal-content">
-        <h2 id="winner-text">GAME OVER</h2>
-        <button class="primary" onclick="location.reload()">タイトルへ</button>
-    </div>
-</div>
+<div id="joker-modal" class="modal"><div class="modal-content"><h3>JOKER属性選択</h3><button class="primary" onclick="resolveJoker('red')">赤として使う</button><button class="primary" onclick="resolveJoker('black')">黒として使う</button></div></div>
+<div id="red-spell-modal" class="modal"><div class="modal-content"><h3>効果選択</h3><button class="primary" onclick="resolveRedChoice('DRAW')">1ドロー</button><button class="primary" onclick="resolveRedChoice('RECOVER')">墓地回収</button></div></div>
+<div id="trash-modal" class="modal"><div class="modal-content"><h3>回収カード選択</h3><div id="trash-display" class="trash-list"></div></div></div>
+<div id="game-over-modal" class="modal"><div class="modal-content"><h2 id="winner-text">GAME OVER</h2><button class="primary" onclick="location.reload()">タイトルへ</button></div></div>
 
 <div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px; margin-bottom:5px;"></div>
 
@@ -160,10 +133,7 @@ function setupConn() {
     conn.on('open', () => {
         document.getElementById('connection-panel').style.display = 'none';
         document.getElementById('mode-selection-modal').style.display = 'flex';
-        if(!isHost) {
-            document.getElementById('mode-options').style.display = 'none';
-            document.getElementById('guest-wait-msg').style.display = 'block';
-        }
+        if(!isHost) { document.getElementById('mode-options').style.display = 'none'; document.getElementById('guest-wait-msg').style.display = 'block'; }
     });
     conn.on('data', data => handleData(data));
 }
@@ -174,12 +144,8 @@ function handleData(data) {
         case 'RULE_SELECT':
             gameState.ruleMode = data.payload;
             document.getElementById('mode-selection-modal').style.display = 'none';
-            if(gameState.ruleMode === 'style') {
-                document.getElementById('setup-modal').style.display = 'flex';
-                renderStyleSelection();
-            } else if(isHost) {
-                initGame();
-            }
+            if(gameState.ruleMode === 'style') { document.getElementById('setup-modal').style.display = 'flex'; renderStyleSelection(); }
+            else if(isHost) initGame();
             break;
         case 'READY_STYLES':
             oppStyles = data.payload.styles; oppReady = true;
@@ -228,8 +194,7 @@ function renderStyleSelection() {
 
 function readyWithStyles() {
     myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
-    myReady = true;
-    send('READY_STYLES', { styles: myStyles });
+    myReady = true; send('READY_STYLES', { styles: myStyles });
     document.getElementById('style-ready-btn').style.display = 'none';
     document.getElementById('waiting-msg').style.display = 'block';
     if(isHost && oppReady) initGame();
@@ -240,85 +205,58 @@ function initGame() {
     gameState.started = true; gameState.gameOver = false;
     gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles };
     gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles };
-    for(let i=0; i<3; i++) { 
-        if(gameState.p1.deck.length > 0) gameState.p1.hand.push(gameState.p1.deck.pop()); 
-        if(gameState.p2.deck.length > 0) gameState.p2.hand.push(gameState.p2.deck.pop()); 
-    }
+    for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
     gameState.turn = 1;
-    showGameBoardUI();
-    logToBoth("--- GAME START ---", "sys");
-    startTurn();
+    showGameBoardUI(); logToBoth("--- GAME START ---", "sys"); startTurn();
 }
 
 function startTurn() {
     if(!isHost) return;
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    for(let i=0; i<2; i++) {
-        if(p.deck.length > 0) p.hand.push(p.deck.pop());
-        else { finishGame(p.name + " 山札切れ！"); return; }
-    }
+    for(let i=0; i<2; i++) { if(p.deck.length > 0) p.hand.push(p.deck.pop()); else { finishGame(p.name + " 山札切れ！"); return; } }
     p.ap = Math.min(p.hand.length, 10);
     p.field.forEach(c => c.tapped = false);
-    logToBoth(`--- ${p.name} のターン ---`, "sys");
-    sync();
+    logToBoth(`--- ${p.name} ターン開始 (AP:${p.ap}) ---`, "sys"); sync();
 }
 
-function executeAction(type, params) {
-    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
+function finishGame(msg) { gameState.gameOver = true; logToBoth(msg, "err"); sync(); }
+function showGameOver() { document.getElementById('game-over-modal').style.display = 'flex'; }
+function showGameBoardUI() { document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','game-over-modal'].includes(m.id)) m.style.display='none'; }); document.getElementById('game-board').style.display='flex'; document.getElementById('game-controls').style.display='flex'; document.getElementById('game-log').style.display='block'; }
+function writeLog(msg, type) { const logDiv = document.getElementById('game-log'); const entry = document.createElement('div'); entry.className = `log-entry log-${type}`; entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`; logDiv.insertBefore(entry, logDiv.firstChild); }
+function logToBoth(msg, type) { writeLog(msg, type); if(isHost) send('LOG', { msg, type }); }
+function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
+function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
 
-    if(type === 'SUMMON' && p.ap >= 1) {
-        let c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap--;
-        logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr");
-    }
-    else if(type === 'WITHDRAW') {
-        let c = p.field.splice(params.idx, 1)[0]; let cost = c.tapped ? 2 : 1;
-        if(p.ap < cost) { p.field.splice(params.idx, 0, c); return; }
-        c.tapped = false; p.deck.unshift(c); p.ap -= cost;
-        logToBoth(`${p.name}: ${getCardName(c)} を撤退`, "usr");
-    }
-    else if(type === 'COMBAT' && p.ap >= 1) {
-        const attackers = params.atkIdxs.map(i => p.field[i]); const defender = opp.field[params.defIdx];
-        const sameColor = (attackers[0].red === defender.red && !attackers[0].isJoker);
-        const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
-        attackers.forEach(a => a.tapped = true); p.ap--;
-        logToBoth(`戦闘: ${attackers.map(a => getCardName(a)).join("+")}(パワー${atkPower}) VS ${getCardName(defender)} [${sameColor ? '同色' : '異色'}]`, "atk");
-        if(!sameColor || atkPower >= defender.rank) {
-            let d = opp.field.splice(params.defIdx, 1)[0]; d.tapped = false; opp.trash.push(d);
-            logToBoth(`${getCardName(d)} を破壊`, "atk");
-            if(sameColor) {
-                if(opp.deck.length > 0) { opp.hand.push(opp.deck.pop()); logToBoth(`${opp.name} に1ダメージ`, "atk"); } 
-                else { finishGame(opp.name + " 山札切れ！"); }
-            }
-        } else {
-            logToBoth("結果: 返り討ち！", "atk");
-            params.atkIdxs.sort((a,b)=>b-a).forEach(i => { let c = p.field.splice(i,1)[0]; c.tapped = false; p.trash.push(c); });
+function updateUI() {
+    if(!gameState.started || !gameState.p1) return;
+    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
+    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+
+    document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length;
+    document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length;
+
+    renderCards('my-hand', me.hand, false, 'me', 'hand'); renderCards('my-field', me.field, false, 'me', 'field'); renderCards('opp-hand', opp.hand, true, 'opp', 'hand'); renderCards('opp-field', opp.field, false, 'opp', 'field');
+    document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
+    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
+    document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
+
+    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
+    btns.forEach(id => { const b = document.getElementById('btn-' + id); b.disabled = !isMyTurn || gameState.gameOver; if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL'))) b.classList.add('active-mode'); else b.classList.remove('active-mode'); });
+}
+
+function renderCards(id, cards, isBack, owner, area) {
+    const container = document.getElementById(id); container.innerHTML = '';
+    cards.forEach((c, i) => {
+        const div = document.createElement('div'); div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
+        if(!isBack) {
+            if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main');
+            if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected');
+            if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target');
+            div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${c.isJoker?'JOK':(c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank))))}</div>`;
         }
-    }
-    else if(type === 'DIRECT' && p.ap >= 1) {
-        params.idxs.forEach(i => p.field[i].tapped = true); p.ap--;
-        logToBoth(`${p.name}: 直接攻撃！`, "atk");
-        for(let i=0; i<2; i++) { if(opp.deck.length > 0) opp.hand.push(opp.deck.pop()); else finishGame(opp.name + " 山札切れ！"); }
-    }
-    else if(type === 'SPELL_MAIN' && p.ap >= 1) {
-        const main = p.hand[params.idx]; const costCards = [];
-        params.costIdxs.sort((a,b) => b.idx - a.idx).forEach(item => { let c = p[item.area].splice(item.idx, 1)[0]; c.tapped = false; costCards.push(c); });
-        const finalMain = p.hand.splice(p.hand.indexOf(main), 1)[0]; finalMain.tapped = false;
-        p.trash.push(finalMain); costCards.forEach(c => p.trash.push(c)); p.ap--;
-        logToBoth(`${p.name}: スペル ${getCardName(finalMain)} 発動 (コスト: ${costCards.map(c=>getCardName(c)).join(",") || "なし"})`, "spl");
-    }
-    else if(type === 'SPELL_RED_RESOLVE') {
-        if(params.choice === 'DRAW') { if(p.deck.length > 0) p.hand.push(p.deck.pop()); else finishGame("山札切れ！"); logToBoth(`${p.name}: 1枚ドロー`, "spl"); }
-        else { 
-            if(p.trash.length === 0) { if(p.deck.length > 0) p.hand.push(p.deck.pop()); logToBoth("墓地が空のためドロー", "spl"); }
-        }
-    }
-    else if(type === 'SPELL_RECOVER_FINISH') {
-        let r = p.trash.splice(params.trashIdx, 1)[0]; r.tapped = false; p.hand.push(r); logToBoth(`${p.name}: 墓地から ${getCardName(r)} を回収`, "spl");
-    }
-    else if(type === 'SPELL_BLACK_RESOLVE') {
-        let d = opp.field.splice(params.targetIdx, 1)[0]; d.tapped = false; opp.trash.push(d); logToBoth(`${p.name}: ${getCardName(d)} を破壊`, "spl");
-    }
+        div.onclick = () => handleCardClick(owner, area, i); container.appendChild(div);
+    });
 }
 
 function handleCardClick(owner, area, idx) {
@@ -327,128 +265,47 @@ function handleCardClick(owner, area, idx) {
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
 
     if(owner === 'me') {
-        if(currentMode === 'SUMMON' && area === 'hand') {
-            if(me.field.length >= 4 || me.ap < 1) return;
-            requestAction('SUMMON', {idx}); resetMode();
-        }
-        else if(currentMode === 'WITHDRAW' && area === 'field') {
-            if(me.ap < (me.field[idx].tapped ? 2 : 1)) return;
-            requestAction('WITHDRAW', {idx}); resetMode();
-        }
-        else if(currentMode === 'ATTACK') {
-            if(me.field[idx].tapped) return;
-            const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field');
-            if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area:'field'});
-        }
-        else if(currentMode === 'SPELL' && area === 'hand') {
-            if(me.ap < 1) return;
-            spellMainIdx = idx; const card = me.hand[idx];
-            if(card.isJoker || card.rank === 1) { 
-                requestAction('SPELL_MAIN', {idx, costIdxs: []});
-                handleSpellFollowUp(card);
-            } else currentMode = 'SPELL_COST';
-        }
-        else if(currentMode === 'SPELL_COST') {
-            if(area === 'hand' && idx === spellMainIdx) return;
-            const exist = selectedCards.findIndex(s => s.idx === idx && s.area === area);
-            if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area});
-            const totalCost = selectedCards.reduce((s, item) => s + me[item.area][item.idx].rank, 0);
-            if(totalCost >= me.hand[spellMainIdx].rank - 1) {
-                const card = me.hand[spellMainIdx];
-                requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards});
-                handleSpellFollowUp(card);
-            }
-        }
+        if(currentMode === 'SUMMON' && area === 'hand') { if(me.field.length < 4 && me.ap >= 1) { requestAction('SUMMON', {idx}); resetMode(); } }
+        else if(currentMode === 'WITHDRAW' && area === 'field') { if(me.ap >= (me.field[idx].tapped?2:1)) { requestAction('WITHDRAW', {idx}); resetMode(); } }
+        else if(currentMode === 'ATTACK' && area === 'field') { if(!me.field[idx].tapped) { const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field'); if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area:'field'}); updateUI(); } }
+        else if(currentMode === 'SPELL' && area === 'hand') { if(me.ap >= 1) { spellMainIdx = idx; const card = me.hand[idx]; if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []}); handleSpellFollowUp(card); } else { currentMode = 'SPELL_COST'; updateUI(); } } }
+        else if(currentMode === 'SPELL_COST') { if(area === 'hand' && idx === spellMainIdx) return; const exist = selectedCards.findIndex(s => s.idx === idx && s.area === area); if(exist !== -1) selectedCards.splice(exist, 1); else selectedCards.push({idx, area}); const total = selectedCards.reduce((s, it) => s + me[it.area][it.idx].rank, 0); if(total >= me.hand[spellMainIdx].rank - 1) { const card = me.hand[spellMainIdx]; requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards}); handleSpellFollowUp(card); } else updateUI(); }
     } else {
-        if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) {
-            if(me.ap < 1) return;
-            requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx}); resetMode();
-        }
-        else if(currentMode === 'SPELL_TARGET' && area === 'field') {
-            requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode();
-        }
-    }
-    updateUI();
-}
-
-function handleSpellFollowUp(card) {
-    if(card.isJoker) { document.getElementById('joker-modal').style.display = 'flex'; }
-    else if(card.red) { document.getElementById('red-spell-modal').style.display = 'flex'; }
-    else {
-        const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
-        if(opp.field.length > 0) { currentMode = 'SPELL_TARGET'; writeLog("破壊対象を選択してください", "spl"); }
-        else { writeLog("対象不在につきスペル完了", "spl"); resetMode(); }
+        if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) { requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx}); resetMode(); }
+        else if(currentMode === 'SPELL_TARGET' && area === 'field') { requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode(); }
     }
 }
 
-function resolveJoker(color) {
-    document.getElementById('joker-modal').style.display = 'none';
-    if(color === 'red') { document.getElementById('red-spell-modal').style.display = 'flex'; }
-    else { 
-        const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
-        if(opp.field.length > 0) { currentMode = 'SPELL_TARGET'; } else resetMode();
+function handleSpellFollowUp(card) { if(card.isJoker) document.getElementById('joker-modal').style.display='flex'; else if(card.red) document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
+function resolveJoker(color) { document.getElementById('joker-modal').style.display='none'; if(color==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
+function resolveRedChoice(choice) { document.getElementById('red-spell-modal').style.display='none'; if(choice==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.length===0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
+function showTrashModal(trash) { const d=document.getElementById('trash-display'); d.innerHTML=''; trash.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH', {trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
+
+function requestAction(type, params) { if(isHost) { executeAction(type, params); sync(); } else send('ACTION', {type, params}); }
+function executeAction(type, params) {
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2); const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
+    if(type === 'SUMMON') { const c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap--; logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr"); }
+    else if(type === 'WITHDRAW') { const c = p.field.splice(params.idx, 1)[0]; const cost = c.tapped?2:1; c.tapped = false; p.deck.unshift(c); p.ap -= cost; logToBoth(`${p.name}: ${getCardName(c)} を撤退`, "usr"); }
+    else if(type === 'COMBAT') {
+        const attackers = params.atkIdxs.map(i => p.field[i]); const defender = opp.field[params.defIdx]; const same = attackers[0].red === defender.red && !attackers[0].isJoker; const power = attackers.reduce((s,c)=>s+c.rank, 0); attackers.forEach(a=>a.tapped=true); p.ap--;
+        logToBoth(`戦闘: ${attackers.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(defender)} [${same?'同色':'異色'}]`, "atk");
+        if(!same || power >= defender.rank) { let d=opp.field.splice(params.defIdx,1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${getCardName(d)} を破壊`, "atk"); if(same) { if(opp.deck.length>0) { opp.hand.push(opp.deck.pop()); logToBoth(`${opp.name} に1ダメージ`, "atk"); } else finishGame(opp.name + " 山札切れ！"); } if(attackers.some(a=>a.rank===2) && p.styles.includes('bukkumi2')) p.ap++; }
+        else { logToBoth("返り討ち！", "atk"); params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); }
     }
+    else if(type === 'DIRECT') { params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--; logToBoth(`${p.name}: 直接攻撃！`, "atk"); for(let i=0; i<2; i++) { if(opp.deck.length>0) opp.hand.push(opp.deck.pop()); else finishGame(opp.name+" 山札切れ！"); } }
+    else if(type === 'SPELL_MAIN') { const costCards = []; params.costIdxs.sort((a,b)=>b.idx-a.idx).forEach(it=>{ let c=p[it.area].splice(it.idx,1)[0]; c.tapped=false; costCards.push(c); }); const main = p.hand.splice(params.idx,1)[0]; main.tapped=false; p.trash.push(main); costCards.forEach(c=>p.trash.push(c)); p.ap--; logToBoth(`${p.name}: スペル ${getCardName(main)} 発動`, "spl"); if(main.rank===12 && p.styles.includes('queenOrder')) { for(let i=0; i<2; i++) if(opp.deck.length>0) opp.hand.push(opp.deck.pop()); else finishGame("山札切れ！"); } }
+    else if(type === 'SPELL_RED_RESOLVE') { if(params.choice==='DRAW') { if(p.deck.length>0) p.hand.push(p.deck.pop()); else finishGame("山札切れ！"); logToBoth(`${p.name}: ドロー`, "spl"); } }
+    else if(type === 'SPELL_RECOVER_FINISH') { let r=p.trash.splice(params.trashIdx,1)[0]; r.tapped=false; p.hand.push(r); logToBoth(`${p.name}: ${getCardName(r)} を回収`, "spl"); }
+    else if(type === 'SPELL_BLACK_RESOLVE') { let d=opp.field.splice(params.targetIdx,1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${p.name}: ${getCardName(d)} を破壊`, "spl"); }
 }
 
-function resolveRedChoice(choice) {
-    document.getElementById('red-spell-modal').style.display = 'none';
-    if(choice === 'DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); }
-    else {
-        const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
-        if(me.trash.length === 0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); }
-        else showTrashModal(me.trash);
-    }
-}
-
-function showTrashModal(trash) {
-    const d = document.getElementById('trash-display'); d.innerHTML = '';
-    trash.forEach((c, i) => {
-        if(c.isJoker) return;
-        const v = document.createElement('div'); v.className = `card ${c.red ? 'red' : ''}`;
-        v.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank}</div>`;
-        v.onclick = () => { document.getElementById('trash-modal').style.display = 'none'; requestAction('SPELL_RECOVER_FINISH', {trashIdx: i}); resetMode(); };
-        d.appendChild(v);
-    });
-    document.getElementById('trash-modal').style.display = 'flex';
-}
-
-function finishGame(msg) { gameState.gameOver = true; logToBoth(msg, "err"); sync(); }
-function showGameOver() { document.getElementById('game-over-modal').style.display = 'flex'; }
-function showGameBoardUI() { document.querySelectorAll('.modal').forEach(m => { if(m.id !== 'game-over-modal') m.style.display = 'none'; }); document.getElementById('game-board').style.display = 'flex'; document.getElementById('game-controls').style.display = 'flex'; document.getElementById('game-log').style.display = 'block'; }
-function writeLog(msg, type) { const logDiv = document.getElementById('game-log'); const entry = document.createElement('div'); entry.className = `log-entry log-${type}`; entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`; logDiv.insertBefore(entry, logDiv.firstChild); }
-function logToBoth(msg, type) { writeLog(msg, type); if(isHost) send('LOG', { msg, type }); }
-function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
-function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
 function resetMode() { currentMode = 'IDLE'; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = ""; updateUI(); }
 function setMode(m) { if(gameState.gameOver) return; currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = "モード: " + currentMode; updateUI(); }
 function endTurn() { if(gameState.gameOver) return; if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); resetMode(); }
 function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s => s.idx)}); resetMode(); }
 function requestRestart() { if(confirm("再起動しますか？")) { if(isHost) initGame(); else send('ACTION', {type:'RESTART'}); } }
 function createDeck(suits) { let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(() => Math.random() - 0.5); }
-function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank}]`; }
-
-function updateUI() {
-    if(!gameState.started || !gameState.p1) return;
-    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
-    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
-    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
-    document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length;
-    document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length;
-    renderCards('my-hand', me.hand, false, 'me', 'hand'); renderCards('my-field', me.field, false, 'me', 'field'); renderCards('opp-hand', opp.hand, true, 'opp', 'hand'); renderCards('opp-field', opp.field, false, 'opp', 'field');
-    document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
-    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
-    document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
-    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
-    btns.forEach(id => { const b = document.getElementById('btn-' + id); b.disabled = !isMyTurn || gameState.gameOver; if(currentMode === id || (id==='SPELL'&&currentMode.startsWith('SPELL_'))) b.classList.add('active-mode'); else b.classList.remove('active-mode'); });
-}
-function renderCards(id, cards, isBack, owner, area) {
-    const container = document.getElementById(id); container.innerHTML = '';
-    cards.forEach((c, i) => {
-        const div = document.createElement('div'); div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
-        if(!isBack) { if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main'); if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected'); if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target'); let val = c.isJoker ? 'JOK' : (c.rank === 1 ? 'A' : (c.rank === 11 ? 'J' : (c.rank === 12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank)))); div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}</div>`; }
-        div.onclick = () => handleCardClick(owner, area, i); container.appendChild(div);
-    });
-}
+function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
 </script>
 </body>
 </html>
