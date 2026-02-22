@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v11.1</title>
+    <title>THE DECKS Online v12.0</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -61,7 +61,6 @@
     </div>
 </div>
 
-<!-- ルール選択モーダル -->
 <div id="mode-selection-modal" class="modal">
     <div class="modal-content">
         <h2>ルール設定</h2>
@@ -196,10 +195,8 @@ function handleData(data) {
             break;
         case 'SYNC':
             gameState = data.payload;
-            if(gameState.started) {
-                showGameBoardUI();
-            } else {
-                // 再試合（設定へ戻る）
+            if(gameState.started) showGameBoardUI();
+            else {
                 resetUIVisibility();
                 resetLocalStates();
                 document.getElementById('mode-selection-modal').style.display = 'flex';
@@ -238,17 +235,28 @@ function requestRuleMode(m) {
     }
 }
 
+function readyWithStyles() {
+    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
+    myReady = true;
+    if(isSolo) { initGame(); }
+    else {
+        send('READY_STYLES', { styles: myStyles });
+        document.getElementById('style-ready-btn').style.display = 'none';
+        document.getElementById('waiting-msg').style.display = 'block';
+        if(isHost && oppReady) initGame();
+    }
+}
+
 function initGame() {
     if(!isHost) return;
     gameState.started = true; gameState.gameOver = false; gameState.winner = null;
     gameState.p1 = { name:"YOU", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles };
     gameState.p2 = { name: (isSolo?"AI":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles };
-    for(let i=0; i<3; i++) { 
-        gameState.p1.hand.push(gameState.p1.deck.pop()); 
-        gameState.p2.hand.push(gameState.p2.deck.pop()); 
-    }
+    for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
     gameState.turn = 1;
-    showGameBoardUI(); logToBoth("--- GAME START ---", "sys"); startTurn();
+    showGameBoardUI();
+    logToBoth("--- GAME START ---", "sys");
+    startTurn();
 }
 
 function startTurn() {
@@ -256,53 +264,82 @@ function startTurn() {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     for(let i=0; i<2; i++) { if(p.deck.length > 0) p.hand.push(p.deck.pop()); else { finishGame((gameState.turn===1?"p2":"p1"), p.name + " 敗北(山札切れ)！"); return; } }
     p.ap = Math.min(p.hand.length, 10);
-    p.field.forEach(c => c.tapped = false);
+    p.field.forEach(c => { c.tapped = false; });
     logToBoth(`--- ${p.name} ターン開始 ---`, "sys");
     sync();
     if(isSolo && gameState.turn === 2) setTimeout(runAiTurn, 1000);
 }
 
-function finishGame(winnerRole, logMsg) {
-    gameState.gameOver = true;
-    gameState.winner = winnerRole;
-    logToBoth(logMsg, "err");
-    sync();
-}
+function executeAction(type, params) {
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
 
-function showGameOver() {
-    document.getElementById('game-over-modal').style.display = 'flex';
-    const label = document.getElementById('winner-text');
-    if(myRole === gameState.winner) {
-        label.innerText = "あなたの勝利！";
-        label.style.color = "#f1c40f";
-    } else {
-        label.innerText = "敗北...";
-        label.style.color = "#e74c3c";
+    if(type === 'SUMMON' && p.ap >= params.cost) {
+        let c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap -= params.cost;
+        logToBoth(`${p.name}: ${getCardName(c)} 招集`, "usr");
+        if(c.rank === 9 && p.styles.includes('punch9') && p.ap >= 1 && opp.field.length > 0) {
+            if(myRole === (gameState.turn===1?'p1':'p2')) showBounceModal(opp.field);
+        }
     }
+    else if(type === 'WITHDRAW' && p.ap >= params.cost) {
+        let c = p.field.splice(params.idx, 1)[0]; c.tapped = false; p.deck.push(c); p.ap -= params.cost;
+        logToBoth(`${p.name}: ${getCardName(c)} 撤退`, "usr");
+        if(c.rank === 1 && p.styles.includes('aceShot')) applyDamage(opp, 3);
+    }
+    else if(type === 'COMBAT') {
+        const atk = params.atkIdxs.map(i => p.field[i]); const def = opp.field[params.defIdx];
+        const same = atk[0].red === def.red && !atk[0].isJoker;
+        const power = atk.reduce((s,c)=>s+getEffectiveRank(c,p), 0);
+        const dPower = getEffectiveRank(def, opp);
+        atk.forEach(a=>a.tapped=true); p.ap -= params.apCost;
+        if(p.styles.includes('lucky7') && atk.some(x=>x.rank===7)) { if(p.trash.length>0) p.deck.push(p.trash.pop()); }
+        logToBoth(`戦闘: ${atk.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(def)}(${dPower})`, "atk");
+        
+        let canKill = true;
+        if(def.rank===6 && opp.styles.includes('barikata6') && !same && !atk.some(x=>x.isJoker)) canKill = false;
+
+        if(canKill && (!same || power >= dPower)) {
+            let d = opp.field.splice(params.defIdx, 1)[0]; d.tapped=false; opp.trash.push(d);
+            if(same) { applyDamage(opp, 1); if(power === dPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); logToBoth("相打ち！", "atk"); } }
+            if(atk.some(x=>x.rank===2) && p.styles.includes('bukkumi2')) p.ap++;
+        } else if(same && power < dPower) {
+            params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); });
+            logToBoth("返り討ち！", "atk");
+        }
+    }
+    else if(type === 'DIRECT') {
+        params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--;
+        logToBoth(`${p.name}: 直接攻撃`, "atk");
+        applyDamage(opp, 2);
+    }
+    else if(type === 'SPELL_MAIN') {
+        let cs = []; params.costIdxs.sort((a,b)=>b.idx-a.idx).forEach(it=>{ let c=p[it.area].splice(it.idx,1)[0]; c.tapped=false; cs.push(c); });
+        let m = p.hand.splice(p.hand.indexOf(p.hand.find((_,idx)=>idx===params.idx || params.idx===spellMainIdx)), 1)[0];
+        m.tapped = false; p.trash.push(m); cs.forEach(c=>p.trash.push(c)); p.ap--;
+        logToBoth(`${p.name}: スペル ${getCardName(m)} 発動`, "spl");
+        if(m.rank===12 && p.styles.includes('queenOrder')) applyDamage(opp, 2);
+    }
+    else if(type === 'SPELL_RED_RESOLVE') {
+        if(params.choice==='DRAW') { if(p.deck.length>0) p.hand.push(p.deck.pop()); else finishGame((gameState.turn===1?"p2":"p1"), "山札切れ！"); logToBoth(`${p.name}: ドローを選択`, "spl"); }
+        if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop());
+    }
+    else if(type === 'SPELL_RECOVER_FINISH') {
+        let r = p.trash.splice(params.trashIdx, 1)[0]; r.tapped=false; p.hand.push(r);
+        logToBoth(`${p.name}: ${getCardName(r)} 回収`, "spl");
+        if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop());
+    }
+    else if(type === 'SPELL_BLACK_RESOLVE') {
+        let d = opp.field.splice(params.targetIdx, 1)[0]; d.tapped=false; opp.trash.push(d);
+        logToBoth(`${p.name}: ${getCardName(d)} 破壊`, "spl");
+        if(p.styles.includes('blackCurse')) applyDamage(opp, 1);
+    }
+    else if(type === 'BOUNCE') {
+        let d = opp.field.splice(params.idx, 1)[0]; d.tapped=false; opp.hand.push(d);
+        p.ap--; logToBoth(`${p.name}: バウンス`, "spl");
+    }
+    if(isSolo) updateUI();
 }
 
-function resetLocalStates() {
-    myStyles = []; oppStyles = []; myReady = false; oppReady = false;
-    currentMode = 'IDLE'; selectedCards = []; spellMainIdx = null;
-    document.getElementById('remaining-sp').innerText = "4";
-    document.getElementById('style-ready-btn').style.display = 'block';
-    document.getElementById('waiting-msg').style.display = 'none';
-    document.getElementById('mode-text').innerText = "";
-}
-
-function requestRestart() { 
-    if(confirm("再設定画面に戻りますか？")) { 
-        if(isHost) { 
-            gameState.started = false;
-            resetLocalStates();
-            document.getElementById('game-over-modal').style.display='none'; 
-            document.getElementById('mode-selection-modal').style.display='flex'; 
-            sync(); 
-        } else { send('ACTION', {type:'RESTART'}); } 
-    } 
-}
-
-// --- 他、AIロジック等は維持 ---
 async function runAiTurn() {
     if(!isSolo || gameState.turn !== 2 || gameState.gameOver) return;
     const ai = gameState.p2; const human = gameState.p1;
@@ -319,21 +356,89 @@ async function runAiTurn() {
     await wait(500); endTurn(); sync();
 }
 
-function executeAction(type, params) {
-    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2); const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
-    if(type === 'SUMMON' && p.ap >= params.cost) { let c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap -= params.cost; logToBoth(`${p.name}: ${getCardName(c)} 招集`, "usr"); }
-    else if(type === 'WITHDRAW' && p.ap >= params.cost) { let c = p.field.splice(params.idx, 1)[0]; c.tapped = false; p.deck.push(c); p.ap -= params.cost; logToBoth(`${p.name}: ${getCardName(c)} 撤退`, "usr"); if(c.rank === 1 && p.styles.includes('aceShot')) applyDamage(opp, 3); }
-    else if(type === 'COMBAT') {
-        const atk = params.atkIdxs.map(i => p.field[i]); const def = opp.field[params.defIdx]; const same = atk[0].red === def.red && !atk[0].isJoker; const power = atk.reduce((s,c)=>s+getEffectiveRank(c,p), 0); const dPower = getEffectiveRank(def, opp); atk.forEach(a=>a.tapped=true); p.ap -= params.apCost; logToBoth(`戦闘: ${atk.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(def)}(${dPower})`, "atk");
-        let canKill = true; if(def.rank===6 && opp.styles.includes('barikata6') && !same && !atk.some(x=>x.isJoker)) canKill = false;
-        if(canKill && (!same || power >= dPower)) { let d = opp.field.splice(params.defIdx, 1)[0]; d.tapped=false; opp.trash.push(d); if(same) { applyDamage(opp, 1); if(power === dPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); logToBoth("相打ち！", "atk"); } } if(atk.some(x=>x.rank===2) && p.styles.includes('bukkumi2')) p.ap++; }
-        else if(same && power < dPower) { params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); logToBoth("返り討ち！", "atk"); }
-    }
-    else if(type === 'DIRECT') { params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--; logToBoth(`${p.name}: 直接攻撃`, "atk"); applyDamage(opp, 2); }
-    else if(type === 'SPELL_MAIN') { let cs = []; params.costIdxs.sort((a,b)=>b.idx-a.idx).forEach(it=>{ let c=p[it.area].splice(it.idx,1)[0]; c.tapped=false; cs.push(c); }); let m = p.hand.splice(p.hand.indexOf(p.hand.find((_,idx)=>idx===params.idx || params.idx===spellMainIdx)), 1)[0]; m.tapped=false; p.trash.push(m); cs.forEach(c=>p.trash.push(c)); p.ap--; logToBoth(`${p.name}: スペル ${getCardName(m)} 発動`, "spl"); if(m.rank===12 && p.styles.includes('queenOrder')) applyDamage(opp, 2); }
-    else if(type === 'SPELL_RED_RESOLVE') { if(params.choice==='DRAW') { if(p.deck.length>0) p.hand.push(p.deck.pop()); else finishGame((gameState.turn===1?"p2":"p1"), "山札切れ！"); logToBoth(`${p.name}: ドローを選択`, "spl"); } if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop()); }
-    else if(type === 'SPELL_RECOVER_FINISH') { let r = p.trash.splice(params.trashIdx, 1)[0]; r.tapped=false; p.hand.push(r); logToBoth(`${p.name}: ${getCardName(r)} 回収`, "spl"); if(p.styles.includes('redHeal') && p.trash.length > 0) p.deck.push(p.trash.pop()); }
-    else if(type === 'SPELL_BLACK_RESOLVE') { let d = opp.field.splice(params.targetIdx, 1)[0]; d.tapped=false; opp.trash.push(d); logToBoth(`${p.name}: ${getCardName(d)} 破壊`, "spl"); if(p.styles.includes('blackCurse')) applyDamage(opp, 1); }
+function updateUI() {
+    if(!gameState.started || !gameState.p1) return;
+    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
+    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+
+    document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length;
+    document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length;
+
+    renderCards('my-hand', me.hand, false, 'me', 'hand', me);
+    renderCards('my-field', me.field, false, 'me', 'field', me);
+    renderCards('opp-hand', opp.hand, (!isSolo), 'opp', 'hand', opp);
+    renderCards('opp-field', opp.field, false, 'opp', 'field', opp);
+
+    renderStyleChips('my-styles-display', me.styles);
+    renderStyleChips('opp-styles-display', opp.styles);
+
+    document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
+    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
+    document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
+
+    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
+    btns.forEach(id => {
+        const b = document.getElementById('btn-' + id);
+        b.disabled = !isMyTurn || gameState.gameOver;
+        if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL_'))) b.classList.add('active-mode'); else b.classList.remove('active-mode');
+    });
+}
+
+function showGameOver() {
+    document.getElementById('game-over-modal').style.display = 'flex';
+    const label = document.getElementById('winner-text');
+    if(myRole === gameState.winner) { label.innerText = "あなたの勝利！"; label.style.color = "#f1c40f"; } 
+    else { label.innerText = "敗北..."; label.style.color = "#e74c3c"; }
+}
+
+function resetLocalStates() {
+    myStyles = []; oppStyles = []; myReady = false; oppReady = false;
+    currentMode = 'IDLE'; selectedCards = []; spellMainIdx = null;
+    document.getElementById('remaining-sp').innerText = "4";
+    document.getElementById('style-ready-btn').style.display = 'block';
+    document.getElementById('waiting-msg').style.display = 'none';
+}
+
+function resetUIVisibility() {
+    document.getElementById('game-board').style.display = 'none';
+    document.getElementById('game-controls').style.display = 'none';
+    document.getElementById('game-log').style.display = 'none';
+    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+}
+
+function showGameBoardUI() {
+    document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal'].includes(m.id)) m.style.display='none'; });
+    document.getElementById('game-board').style.display = 'flex';
+    document.getElementById('game-controls').style.display = 'flex';
+    document.getElementById('game-log').style.display = 'block';
+}
+
+function renderCards(id, cards, isBack, owner, area, pObj) {
+    const container = document.getElementById(id); container.innerHTML = '';
+    cards.forEach((c, i) => {
+        const div = document.createElement('div');
+        div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
+        if(!isBack) {
+            if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main');
+            if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected');
+            if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target');
+            let rank = getEffectiveRank(c, pObj);
+            div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${c.isJoker?'JOK':(rank===1?'A':(rank===11?'J':(rank===12?'Q':(rank===13?'K':rank))))}</div>`;
+        }
+        div.onclick = () => handleCardClick(owner, area, i);
+        container.appendChild(div);
+    });
+}
+
+function requestRestart() { 
+    if(confirm("再試合を開始しますか？")) { 
+        if(isHost) { 
+            gameState.started = false; gameState.gameOver = false;
+            resetLocalStates();
+            sync(); 
+        } else { send('ACTION', {type:'RESTART'}); } 
+    } 
 }
 
 function handleCardClick(owner, area, idx) {
@@ -356,9 +461,13 @@ function handleCardClick(owner, area, idx) {
         else if(currentMode === 'SPELL_TARGET' && area === 'field') { requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode(); }
     }
 }
-function updateUI() { if(!gameState.started || !gameState.p1) return; const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2)); const me = (myRole === 'p1' ? gameState.p1 : gameState.p2); const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1); document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length; document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length; renderCards('my-hand', me.hand, false, 'me', 'hand', me); renderCards('my-field', me.field, false, 'me', 'field', me); renderCards('opp-hand', (isSolo?opp.hand:opp.hand), (!isSolo), 'opp', 'hand', opp); renderCards('opp-field', opp.field, false, 'opp', 'field', opp); renderStyleChips('my-styles-display', me.styles); renderStyleChips('opp-styles-display', opp.styles); document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : ''); document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : ''); document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none'; const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END']; btns.forEach(id => { const b = document.getElementById('btn-' + id); b.disabled = !isMyTurn || gameState.gameOver; if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL_'))) b.classList.add('active-mode'); else b.classList.remove('active-mode'); }); }
-function renderCards(id, cards, isBack, owner, area, pObj) { const container = document.getElementById(id); container.innerHTML = ''; cards.forEach((c, i) => { const div = document.createElement('div'); div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`; if(!isBack) { if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main'); if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected'); if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target'); let rank = getEffectiveRank(c, pObj); div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${c.isJoker?'JOK':(rank===1?'A':(rank===11?'J':(rank===12?'Q':(rank===13?'K':rank))))}</div>`; } div.onclick = () => handleCardClick(owner, area, i); container.appendChild(div); }); }
-function getEffectiveRank(c, p) { if(c.isJoker) return 14; let r = c.rank; if(r===5 && p.styles.includes('bond5') && p.field.filter(x=>x.rank===5).length >= 2) r=10; if(p.styles.includes('suitSync') && p.field.length === 4 && p.field.every(x=>x.suit===p.field[0].suit)) r+=2; return r; }
+
+function handleSpellFollowUp(card) { if(card.isJoker) document.getElementById('joker-modal').style.display='flex'; else if(card.red) document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
+function resolveJoker(c) { document.getElementById('joker-modal').style.display='none'; if(c==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
+function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.display='none'; if(c==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.filter(x=>!x.isJoker).length === 0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
+function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
+function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
+
 function sync() { if(isHost && !isSolo) send('SYNC', gameState); updateUI(); }
 function send(t, p) { if(conn && conn.open) conn.send({type:t, payload:p}); }
 function writeLog(m, t) { const l=document.getElementById('game-log'); const e=document.createElement('div'); e.className=`log-entry log-${t}`; e.innerText=`[${new Date().toLocaleTimeString()}] ${m}`; l.insertBefore(e, l.firstChild); }
@@ -368,19 +477,13 @@ function setMode(m) { if(gameState.gameOver) return; currentMode=(currentMode===
 function endTurn() { if(gameState.gameOver) return; if(isHost) { gameState.turn=(gameState.turn===1?2:1); startTurn(); } else send('ACTION', {type:'END_TURN'}); resetMode(); }
 function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s=>s.idx)}); resetMode(); }
 function applyDamage(t, a) { for(let i=0; i<a; i++) { if(t.deck.length > 0) t.hand.push(t.deck.pop()); else finishGame((t.name==="YOU"?"p2":"p1"), t.name + " 山札切れ！"); } }
+function getEffectiveRank(c, p) { if(c.isJoker) return 14; let r = c.rank; if(r===5 && p.styles.includes('bond5') && p.field.filter(x=>x.rank===5).length >= 2) r=10; if(p.styles.includes('suitSync') && p.field.length === 4 && p.field.every(x=>x.suit===p.field[0].suit)) r+=2; return r; }
 function renderStyleChips(id, styles) { const c=document.getElementById(id); c.innerHTML=''; styles.forEach(sid=>{ const s=STYLES_DEF.find(x => x.id === sid); if(s){ const ch=document.createElement('div'); ch.className='style-chip'; ch.innerText=s.name; ch.title=s.desc; c.appendChild(ch); } }); }
 function openRuleBook() { window.open("https://github.com/itati-kawauso/the-decks-online/blob/main/%F0%9F%83%8F%20%E3%83%88%E3%83%A9%E3%83%B3%E3%83%97%E5%AF%BE%E6%88%A6%E3%82%AB%E3%83%BC%E3%83%89%E3%82%B2%E3%83%BC%E3%83%A0%EF%BC%9A%E3%80%8ETHE%20DECKS%E3%80%8F%E5%AE%8C%E5%85%A8%E7%89%88%E3%83%AB%E3%83%BC%E3%83%AB%E3%83%96%E3%83%83%E3%82%AF.pdf", "_blank"); }
 function createDeck(s) { let d=[]; s.forEach(su=>{ for(let r=1; r<=13; r++) d.push({suit:su, rank:r, red:(su==='H'||su==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(()=>Math.random()-0.5); }
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
 function requestAction(type, params) { if(isHost) { executeAction(type, params); if(!isSolo) sync(); } else send('ACTION', {type, params}); }
-function handleSpellFollowUp(card) { if(card.isJoker) document.getElementById('joker-modal').style.display='flex'; else if(card.red) document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
-function resolveJoker(c) { document.getElementById('joker-modal').style.display='none'; if(c==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
-function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.display='none'; if(c==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.filter(x=>!x.isJoker).length === 0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
-function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
-function showGameBoardUI() { document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal'].includes(m.id)) m.style.display='none'; }); document.getElementById('game-board').style.display='flex'; document.getElementById('game-controls').style.display='flex'; document.getElementById('game-log').style.display='block'; }
-function resetUIVisibility() { document.getElementById('game-board').style.display = 'none'; document.getElementById('game-controls').style.display = 'none'; document.getElementById('game-log').style.display = 'none'; document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 function renderStyleSelection() { const list = document.getElementById('style-list'); list.innerHTML = ''; STYLES_DEF.forEach(s => { const div = document.createElement('div'); div.className = 'style-option'; div.innerHTML = `<input type="checkbox" class="style-check" value="${s.id}" data-sp="${s.sp}"> <div style="margin-left:5px;"><b>${s.name}</b>(${s.sp}SP)<br>${s.desc}</div>`; div.querySelector('input').onclick = (e) => { let total = 0; document.querySelectorAll('.style-check:checked').forEach(ck => total += parseInt(ck.dataset.sp)); if(total > 4) { e.target.checked = false; total -= parseInt(e.target.dataset.sp); } document.getElementById('remaining-sp').innerText = 4 - total; }; list.appendChild(div); }); }
-function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
 </script>
 </body>
 </html>
