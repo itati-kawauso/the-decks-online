@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS - Online VS v2.3</title>
+    <title>THE DECKS Online v2.4</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        /* スタイルは維持しつつ、一部調整 */
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
         #connection-panel { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; margin: 20px; border: 2px solid #f1c40f; text-align: center; width: 90%; max-width: 400px; }
-        #game-board { width: 95%; max-width: 1000px; display: flex; flex-direction: column; gap: 10px; margin-top: 20px;}
+        #game-board { width: 95%; max-width: 1000px; display: none; flex-direction: column; gap: 10px; margin-top: 20px;}
         .player-area { border: 2px solid #7f8c8d; padding: 10px; border-radius: 10px; background: #34495e; position: relative; transition: all 0.3s; }
         .active-area { border-color: #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
         .stats { display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; font-size: 13px;}
@@ -25,14 +24,13 @@
         .card.can-target { border-color: #e67e22; animation: blink 0.8s infinite; }
         @keyframes blink { 0% { box-shadow: 0 0 5px #e67e22; } 50% { box-shadow: 0 0 20px #e67e22; } 100% { box-shadow: 0 0 5px #e67e22; } }
         .suit { font-size: 20px; }
-        .controls { margin: 15px; display: flex; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
-        .log-container { width: 95%; max-width: 1000px; height: 140px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
-        .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 11px; border-bottom: 1px solid #222; }
-        button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; transition: 0.2s;}
+        .controls { margin: 15px; display: none; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
+        .log-container { width: 95%; max-width: 1000px; height: 140px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; display: none; }
+        .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 11px; border-bottom: 1px solid #222; color: #ccc;}
+        button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; }
         button.primary { background: #f1c40f; color: #000; }
-        button.primary:hover { background: #d4ac0d; }
         button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
         .modal-content { background: #34495e; padding: 25px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; width: 90%; max-width: 500px; }
         .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; max-height: 300px; overflow-y: auto;}
         .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
@@ -43,6 +41,7 @@
 
 <h1>THE DECKS Online</h1>
 
+<!-- 接続パネル -->
 <div id="connection-panel">
     <div id="status">Peer準備中...</div>
     <div id="my-id-display" style="margin: 10px 0; font-size: 12px; color: #f1c40f; word-break: break-all;"></div>
@@ -55,7 +54,7 @@
     </div>
 </div>
 
-<!-- ルール選択モーダル -->
+<!-- モード選択モーダル -->
 <div id="mode-selection-modal" class="modal">
     <div class="modal-content">
         <h2>ルール設定</h2>
@@ -73,13 +72,14 @@
         <h2>スタイル選択 (残りSP: <span id="remaining-sp">4</span>)</h2>
         <div class="style-grid" id="style-list"></div>
         <button id="style-ready-btn" class="primary" onclick="readyWithStyles()">準備完了</button>
-        <p id="waiting-msg" style="display:none; color:#f1c40f;">相手を待っています...</p>
+        <p id="waiting-msg" style="display:none; color:#f1c40f;">相手の準備を待っています...</p>
     </div>
 </div>
 
 <div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px; margin: 5px;"></div>
 
-<div id="game-board" style="display: none;">
+<!-- メイン盤面 -->
+<div id="game-board">
     <div id="opp-area" class="player-area">
         <div class="stats">ENEMY | Deck: <span id="opp-deck">0</span> | AP: <span id="opp-ap">0</span> | Trash: <span id="opp-trash-count">0</span></div>
         <div id="opp-styles-display" class="active-styles-display"></div>
@@ -97,7 +97,7 @@
     </div>
 </div>
 
-<div class="controls" id="game-controls" style="display: none;">
+<div class="controls" id="game-controls">
     <button id="btn-SUMMON" onclick="setMode('SUMMON')">招集(1)</button>
     <button id="btn-SPELL" onclick="setMode('SPELL')">スペル</button>
     <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃(1)</button>
@@ -105,7 +105,7 @@
     <button class="primary" onclick="endTurn()">ターン終了</button>
 </div>
 
-<div id="game-log" class="log-container" style="display: none;"></div>
+<div id="game-log" class="log-container"></div>
 
 <script>
 const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
@@ -129,24 +129,18 @@ const STYLES_DEF = [
 ];
 
 let peer, conn, isHost = false, myRole = null; 
-let gameState = { p1: null, p2: null, turn: 1, ruleMode: null };
-let myStyles = [], oppStyles = [], oppReady = false;
+let gameState = { p1: null, p2: null, turn: 1, ruleMode: null, started: false };
+let myStyles = [], oppStyles = [], oppReady = false, myReady = false;
 let currentMode = 'IDLE', selectedCards = [];
 
 peer = new Peer();
 peer.on('open', id => {
     document.getElementById('status').innerText = "通信準備完了";
-    document.getElementById('my-id-display').innerText = "あなたのID: " + id;
+    document.getElementById('my-id-display').innerText = "ID: " + id;
 });
+peer.on('connection', c => { conn = c; isHost = true; myRole = 'p1'; setupConn(); });
 
-peer.on('connection', c => {
-    conn = c; isHost = true; myRole = 'p1'; setupConn();
-});
-
-function hostGame() {
-    document.getElementById('setup-controls').innerHTML = "相手の参加を待っています...";
-}
-
+function hostGame() { document.getElementById('setup-controls').innerHTML = "相手の参加を待っています..."; }
 function joinGame() {
     const id = document.getElementById('join-id').value;
     if (!id) return;
@@ -166,29 +160,28 @@ function setupConn() {
 }
 
 function handleData(data) {
-    console.log("Recv:", data.type, data.payload);
+    console.log("Receive:", data.type);
     switch(data.type) {
         case 'RULE_SELECT':
             gameState.ruleMode = data.payload;
-            // モーダルを閉じて次に進む
             document.getElementById('mode-selection-modal').style.display = 'none';
             if (gameState.ruleMode === 'style') {
                 document.getElementById('setup-modal').style.display = 'flex';
                 renderStyleSelection();
-            } else {
-                // 基本ルールの場合は画面だけ準備してホストからのSYNCを待つ
-                showGameBoardUI();
+            } else if (isHost) {
+                initGame(); // ホストなら即開始
             }
             break;
 
         case 'READY_STYLES':
-            oppStyles = data.payload.styles; oppReady = true;
-            if (myStyles.length > 0 || gameState.ruleMode === 'basic') initGame();
+            oppStyles = data.payload.styles;
+            oppReady = true;
+            if (isHost && myReady) initGame();
             break;
 
         case 'SYNC':
             gameState = data.payload;
-            showGameBoardUI(); // 盤面を表示
+            if (gameState.started) showGameBoardUI();
             updateUI();
             break;
 
@@ -206,38 +199,40 @@ function handleData(data) {
     }
 }
 
+function requestRuleMode(m) {
+    if (!isHost) return;
+    send('RULE_SELECT', m);
+    handleData({ type: 'RULE_SELECT', payload: m });
+}
+
+function readyWithStyles() {
+    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
+    myReady = true;
+    send('READY_STYLES', { styles: myStyles });
+    document.getElementById('style-ready-btn').style.display = 'none';
+    document.getElementById('waiting-msg').style.display = 'block';
+    if (isHost && oppReady) initGame();
+}
+
+function initGame() {
+    if (!isHost) return;
+    gameState.started = true;
+    gameState.p1 = { name: "Host", deck: createDeck(['S', 'H']), hand: [], field: [], trash: [], ap: 0, styles: myStyles };
+    gameState.p2 = { name: "Guest", deck: createDeck(['C', 'D']), hand: [], field: [], trash: [], ap: 0, styles: oppStyles };
+    for(let i=0; i<3; i++) {
+        if(gameState.p1.deck.length>0) gameState.p1.hand.push(gameState.p1.deck.pop());
+        if(gameState.p2.deck.length>0) gameState.p2.hand.push(gameState.p2.deck.pop());
+    }
+    gameState.turn = 1;
+    startTurn(); // これがSYNCを呼ぶ
+}
+
 function showGameBoardUI() {
     document.getElementById('mode-selection-modal').style.display = 'none';
     document.getElementById('setup-modal').style.display = 'none';
     document.getElementById('game-board').style.display = 'flex';
     document.getElementById('game-controls').style.display = 'flex';
     document.getElementById('game-log').style.display = 'block';
-}
-
-function requestRuleMode(m) {
-    if (!isHost) return;
-    // 自分に適用
-    handleData({ type: 'RULE_SELECT', payload: m });
-    // 相手に送信
-    send('RULE_SELECT', m);
-}
-
-function send(type, payload) {
-    if (conn && conn.open) conn.send({ type, payload });
-}
-
-function initGame() {
-    if (isHost) {
-        gameState.p1 = { name: "P1", deck: createDeck(['S', 'H']), hand: [], field: [], trash: [], ap: 0, styles: myStyles };
-        gameState.p2 = { name: "P2", deck: createDeck(['C', 'D']), hand: [], field: [], trash: [], ap: 0, styles: oppStyles };
-        for(let i=0; i<3; i++) { 
-            if(gameState.p1.deck.length>0) gameState.p1.hand.push(gameState.p1.deck.pop()); 
-            if(gameState.p2.deck.length>0) gameState.p2.hand.push(gameState.p2.deck.pop()); 
-        }
-        gameState.turn = 1;
-        startTurn();
-    }
-    showGameBoardUI();
 }
 
 function startTurn() {
@@ -251,22 +246,18 @@ function startTurn() {
 }
 
 function sync() { if (isHost) send('SYNC', gameState); updateUI(); }
+function send(type, payload) { if (conn && conn.open) conn.send({ type, payload }); }
 
 function endTurn() {
     if (gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
-    if (isHost) {
-        gameState.turn = (gameState.turn === 1 ? 2 : 1);
-        startTurn();
-    } else {
-        send('ACTION', { type: 'END_TURN' });
-    }
+    if (isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } 
+    else { send('ACTION', { type: 'END_TURN' }); }
     currentMode = 'IDLE'; updateUI();
 }
 
 function handleCardClick(owner, area, idx) {
     const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     if (!isMyTurn) return;
-
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
     if (owner === 'me') {
         if (currentMode === 'SUMMON' && area === 'hand') requestAction('SUMMON', { idx });
@@ -293,70 +284,29 @@ function requestAction(type, params) {
 function executeAction(type, params) {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
-
     if (type === 'SUMMON') {
         if (p.ap < 1) return;
-        const c = p.hand.splice(params.idx, 1)[0];
-        p.field.push(c); p.ap--;
-        log(`${p.name}: ${getCardName(c)} を招集`, "system");
+        p.field.push(p.hand.splice(params.idx, 1)[0]); p.ap--;
     } else if (type === 'WITHDRAW') {
         const c = p.field.splice(params.idx, 1)[0];
         const cost = c.tapped ? 2 : 1;
         if (p.ap < cost) { p.field.splice(params.idx, 0, c); return; }
         p.deck.unshift(c); p.ap -= cost;
-        log(`${p.name}: ${getCardName(c)} が撤退`, "system");
-    } else if (type === 'DIRECT') {
-        if (p.ap < 1) return;
-        params.idxs.forEach(i => p.field[i].tapped = true);
-        p.ap--; applyDamage(opp, 2);
-        log(`${p.name}: 直接攻撃！`, "combat");
     } else if (type === 'COMBAT') {
-        if (p.ap < 1) return;
         const attackers = params.atkIdxs.map(i => p.field[i]);
         const defender = opp.field[params.defIdx];
         attackers.forEach(c => c.tapped = true); p.ap--;
         const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
         if (attackers[0].red !== defender.red || atkPower >= defender.rank) {
             opp.trash.push(opp.field.splice(params.defIdx, 1)[0]);
-            log(`${p.name}の攻撃成功！`, "combat");
             if (attackers[0].red === defender.red) applyDamage(opp, 1);
         } else {
-            log(`${p.name}の攻撃失敗(返り討ち)`, "combat");
             params.atkIdxs.sort((a,b)=>b-a).forEach(i => p.trash.push(p.field.splice(i,1)[0]));
         }
+    } else if (type === 'DIRECT') {
+        params.idxs.forEach(i => p.field[i].tapped = true);
+        p.ap--; applyDamage(opp, 2);
     }
-}
-
-function setMode(m) {
-    currentMode = (currentMode === m) ? 'IDLE' : m;
-    selectedCards = [];
-    document.getElementById('mode-text').innerText = `モード: ${currentMode}`;
-    updateUI();
-}
-
-function executeDirectAttack() {
-    if (selectedCards.length > 0) {
-        requestAction('DIRECT', { idxs: selectedCards });
-        selectedCards = []; currentMode = 'IDLE';
-    }
-}
-
-function applyDamage(target, amt) {
-    for(let i=0; i<amt; i++) if(target.deck.length > 0) target.hand.push(target.deck.pop());
-}
-
-function createDeck(suits) {
-    let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({ suit: s, rank: r, red: (s==='H'||s==='D'), tapped: false }); });
-    d.push({ suit: 'J', rank: 14, isJoker: true, red: null, tapped: false });
-    return d.sort(() => Math.random() - 0.5);
-}
-
-function log(msg, type, broadcast = true) {
-    const entry = document.createElement('div'); entry.className = `log-entry`;
-    entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    const container = document.getElementById('game-log');
-    container.insertBefore(entry, container.firstChild);
-    if (isHost && broadcast) send('LOG', { msg, type });
 }
 
 function updateUI() {
@@ -404,6 +354,19 @@ function renderCards(id, cards, isBack, owner, area) {
     });
 }
 
+function setMode(m) {
+    currentMode = (currentMode === m) ? 'IDLE' : m;
+    selectedCards = [];
+    document.getElementById('mode-text').innerText = `モード: ${currentMode}`;
+    updateUI();
+}
+function executeDirectAttack() { if (selectedCards.length > 0) { requestAction('DIRECT', { idxs: selectedCards }); selectedCards = []; currentMode = 'IDLE'; } }
+function applyDamage(target, amt) { for(let i=0; i<amt; i++) if(target.deck.length > 0) target.hand.push(target.deck.pop()); }
+function createDeck(suits) {
+    let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({ suit: s, rank: r, red: (s==='H'||s==='D'), tapped: false }); });
+    d.push({ suit: 'J', rank: 14, isJoker: true, red: null, tapped: false });
+    return d.sort(() => Math.random() - 0.5);
+}
 function renderStyleSelection() {
     const list = document.getElementById('style-list'); list.innerHTML = '';
     STYLES_DEF.forEach(s => {
@@ -413,19 +376,14 @@ function renderStyleSelection() {
         list.appendChild(div);
     });
 }
-
-function readyWithStyles() {
-    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
-    send('READY_STYLES', { styles: myStyles });
-    document.getElementById('style-ready-btn').style.display = 'none';
-    document.getElementById('waiting-msg').style.display = 'block';
-    if (oppReady) initGame();
+function log(msg, type, broadcast = true) {
+    const entry = document.createElement('div'); entry.className = `log-entry`;
+    entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    const container = document.getElementById('game-log');
+    container.insertBefore(entry, container.firstChild);
+    if (isHost && broadcast) send('LOG', { msg, type });
 }
-
-function getCardName(c) {
-    if(!c) return ""; if(c.isJoker) return "JOKER";
-    return SUITS[c.suit] + (c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank);
-}
+function getCardName(c) { if(!c) return ""; if(c.isJoker) return "JOKER"; return SUITS[c.suit] + (c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank); }
 </script>
 </body>
 </html>
