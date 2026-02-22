@@ -1,804 +1,439 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF- border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 3px solid transparent;8">
-    <meta name="viewport" content="width=device-width, initial-scale=1. user-select: none; transition: 0.2s; position: relative; }
-        .card.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE DECKS Online v3.1</title>
-    <script src="red { color: #e74c3c; }
-        .card.back { background: #2https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></980b9 !important; border-color: #3498db; }
-        .cardscript>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #2c.tapped { transform: rotate(10deg); opacity: 0.7; background: #bdc3e50; color: white; display: flex; flex-direction: column; align-items: center3c7; }
-        .card.selected { border-color: #3498db; transform; margin: 0; padding-bottom: 20px;}
-        #connection-panel { background:: translateY(-8px); box-shadow: 0 5px 15px rgba(52, rgba(0,0,0,0.8); padding: 20px; border-radius:  152, 219, 0.6); }
-        .card.spell-main10px; margin: 20px; border: 2px solid #f1c40f { border-color: #9b59b6; box-shadow: 0 0 15; text-align: center; width: 90%; max-width: 400px; }px #9b59b6; }
-        .card.can-target { border-color: #
+        body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
+        #connection-panel { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; margin: 20px; border: 2px solid #f1c40f; text-align: center; width: 90%; max-width: 400px; }
         #game-board, #game-controls, #game-log { display: none; }
-        e67e22; animation: blink 0.8s infinite; }
-        @keyframes blink {#game-board { width: 95%; max-width: 1000px; flex- 0% { box-shadow: 0 0 5px #e67e22; }direction: column; gap: 10px; margin-top: 20px;}
-        .player 50% { box-shadow: 0 0 15px #e67e22-area { border: 2px solid #7f8c8d; padding: 10px;; } 100% { box-shadow: 0 0 5px #e67e border-radius: 10px; background: #34495e; position: relative; }22; } }
-        
-        .suit { font-size: 20px; }
-        
-        .active-area { border-color: #f1c40f; box-shadow: .controls { margin: 10px; flex-wrap: wrap; gap: 8px; background:0 0 20px rgba(241, 196, 15, 0 #1a252f; padding: 15px; border-radius: 10px;.4); }
-        .stats { display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.3 width: 95%; max-width: 980px; justify-content: center;}
-        ); padding: 5px; border-radius: 5px; font-size: 13px;}
-        .log-container { width: 95%; max-width: 1000px; height: 160px; background: #000; border: 2px solid #7f
-        .field, .hand { display: flex; flex-wrap: wrap; gap: 8px;8c8d; border-radius: 5px; overflow-y: scroll; padding: 10 min-height: 110px; background: rgba(0,0,0,0.2);px; box-sizing: border-box; }
-        .log-entry { margin-bottom: 4 padding: 10px; border-radius: 5px; margin-top: 5px; align-items: center; justify-content: center;}
-        .card { width: 60px; heightpx; font-family: monospace; font-size: 11px; border-bottom: 1px: 85px; background: white; color: black; border-radius: 6px; display: solid #222; }
-        .log-sys { color: #00ff00; } flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;
-        .log-atk { color: #ff4d4d; font-weight: bold; }
- font-weight: bold; border: 3px solid transparent; user-select: none; transition: 0        .log-spl { color: #9b59b6; }
-        .log-usr {.2s; position: relative; }
-        .card.red { color: #e74c3 color: #00d2ff; }
-
-        button { padding: 8px 12px;c; }
-        .card.back { background: #2980b9 !important; border- cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background:color: #3498db; }
-        .card.tapped { transform: rotate(10 #ecf0f1; }
-        button.primary { background: #f1c40f;deg); opacity: 0.7; background: #bdc3c7; }
-        .card. color: #000; }
-        button.active-mode { background: #f1c40selected { border-color: #3498db; transform: translateY(-8px); box-shadow:f !important; box-shadow: 0 0 10px #f1c40f; }
-        
-        .modal { display: none; position: fixed; top: 0; left:  0 5px 15px rgba(52, 152, 219, 0.6); }
-        .card.spell-main { border-color: #9b590; width: 100%; height: 100%; background: rgba(0,0,b6; box-shadow: 0 0 15px #9b59b6; }0,0.9); z-index: 200; flex-direction: column; align-items
+        #game-board { width: 95%; max-width: 1000px; flex-direction: column; gap: 10px; margin-top: 20px;}
+        .player-area { border: 2px solid #7f8c8d; padding: 10px; border-radius: 10px; background: #34495e; position: relative; }
+        .active-area { border-color: #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+        .stats { display: flex; justify-content: space-around; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; font-size: 13px;}
+        .field, .hand { display: flex; flex-wrap: wrap; gap: 8px; min-height: 110px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-top: 5px; align-items: center; justify-content: center;}
+        .card { width: 60px; height: 85px; background: white; color: black; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 3px solid transparent; user-select: none; transition: 0.2s; position: relative; }
+        .card.red { color: #e74c3c; }
+        .card.back { background: #2980b9 !important; border-color: #3498db; }
+        .card.tapped { transform: rotate(10deg); opacity: 0.7; background: #bdc3c7; }
+        .card.selected { border-color: #3498db; transform: translateY(-8px); box-shadow: 0 5px 15px rgba(52, 152, 219, 0.6); }
+        .card.spell-main { border-color: #9b59b6; box-shadow: 0 0 15px #9b59b6; }
         .card.can-target { border-color: #e67e22; animation: blink 0.8s infinite; }
-        @keyframes blink { 0% { box-shadow: 0: center; justify-content: center; }
-        .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center 0 5px #e67e22; } 50% { box-shadow: ; border: 2px solid #f1c40f; }
-        .trash-list { display0 0 15px #e67e22; } 100% { box-: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0;shadow: 0 0 5px #e67e22; } }
-        .suit { justify-content: center; max-width: 500px; }
-        .direct-attack- font-size: 20px; }
-        .controls { margin: 15px; flex-btn { background: #e74c3c; color: white; padding: 10px; borderwrap: wrap; gap: 8px; background: #1a252f; padding: 1-radius: 5px; cursor: pointer; display: none; margin: 5px auto; }
-5px; border-radius: 10px; width: 95%; max-width: 9    </style>
+        @keyframes blink { 0% { box-shadow: 0 0 5px #e67e22; } 50% { box-shadow: 0 0 15px #e67e22; } 100% { box-shadow: 0 0 5px #e67e22; } }
+        .suit { font-size: 20px; }
+        .controls { margin: 15px; flex-wrap: wrap; gap: 8px; background: #1a252f; padding: 15px; border-radius: 10px; width: 95%; max-width: 980px; justify-content: center;}
+        .log-container { width: 95%; max-width: 1000px; height: 180px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
+        .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 11px; border-bottom: 1px solid #222; }
+        .log-sys { color: #00ff00; }
+        .log-atk { color: #ff4d4d; font-weight: bold; }
+        .log-spl { color: #9b59b6; }
+        .log-usr { color: #00d2ff; }
+        button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; }
+        button.primary { background: #f1c40f; color: #000; }
+        button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+        .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; }
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; max-height: 250px; overflow-y: auto; width: 400px;}
+        .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
+        .trash-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; justify-content: center; max-width: 500px; }
+        .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; }
+    </style>
 </head>
 <body>
 
 <h1>THE DECKS Online</h1>
 
-<div id="connection-80px; justify-content: center;}
-        .log-container { width: 95%; max-width: 1000px; height: 180px; background: #000; border: 2px solid #7f8c8d; border-radius: 5px; overflow-y: scroll; padding: 10px; box-sizing: border-box; }
-        .log-entry { margin-bottom: 4px; font-family: monospace; font-size: 1panel">
+<div id="connection-panel">
     <div id="status">Peer準備中...</div>
     <div id="my-id-display" style="margin: 10px 0; color: #f1c40f;"></div>
     <div id="setup-controls">
         <button onclick="hostGame()" class="primary">部屋を作る (Host)</button>
         <div style="margin-top: 15px;">
-            <input id="join-id" placeholder="相手のIDを入力" style="padding: 8px; width1px; border-bottom: 1px solid #222; }
-        .log-sys {: 70%;">
+            <input id="join-id" placeholder="相手のIDを入力" style="padding: 8px; width: 70%;">
             <button onclick="joinGame()">参加</button>
         </div>
-    </div> color: #00ff00; }
-        .log-atk { color: #ff4d4
+    </div>
 </div>
 
-<!-- ルール選択 -->
 <div id="mode-selection-modal" class="modal">
-    d; font-weight: bold; }
-        .log-spl { color: #9b59b<div class="modal-content">
-        <h2>ルール設定</h2>
-        <button class="primary" onclick="6; }
-        .log-usr { color: #00d2ff; }
-        button {requestRuleMode('basic')">基本ルール</button>
-        <button class="primary" onclick="requestRule padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius:Mode('style')">採用型ルール</button>
-    </div>
-</div>
-
-<!-- 赤スペル解決 -->
-<div 5px; border: none; background: #ecf0f1; }
-        button.primary { id="red-spell-modal" class="modal">
-    <div class="modal-content">
-         background: #f1c40f; color: #000; }
-        button.active-mode { background: #f1c40f !important; box-shadow: 0 0 1<h3>赤スペルの効果選択</h3>
-        <button class="primary" onclick="resolveRedChoice('DRAW')">10px #f1c40f; }
-        .modal { display: none; position: fixed;ドロー</button>
-        <button class="primary" onclick="resolveRedChoice('RECOVER')">墓 top: 0; left: 0; width: 100%; height: 100%;地から回収</button>
-    </div>
-</div>
-
-<!-- 墓地回収 -->
-<div id="trash background: rgba(0,0,0,0.9); z-index: 200; flex-modal" class="modal">
-    <div class="modal-content">
-        <h3>回収するカードを選択-direction: column; align-items: center; justify-content: center; }
-        .modal-content</h3>
-        <div id="trash-display" class="trash-list"></div>
-    </div>
-</div>
-
-< { background: #34495e; padding: 20px; border-radius: 1div id="mode-text" style="color:#f1c40f; font-weight:bold;0px; text-align: center; border: 2px solid #f1c40f; } height: 20px;"></div>
-
-<div id="game-board">
-    <div id="opp
-        .trash-list { display: flex; flex-wrap: wrap; gap: 5px; margin-area" class="player-area">
-        <div class="stats">ENEMY | Deck: <span id: 10px 0; justify-content: center; max-width: 500px; }
-        .direct-attack-btn { background: #e74c3c; color: white;="opp-deck">0</span> | AP: <span id="opp-ap">0</span> | Trash: <span id="opp-trash">0</span></div>
-        <button id="direct-btn" class="direct-attack padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin-btn" onclick="executeDirectAttack()">直接攻撃！</button>
-        <div id="opp-field: 5px auto; }
-    </style>
-</head>
-<body>
-
-<h1>THE DECKS Online</h1>" class="field"></div>
-        <div id="opp-hand" class="hand"></div>
-    </div>
-
-<div id="connection-panel">
-    <div id="status">Peer準備中...</div>
-    
-    <div id="my-area" class="player-area">
-        <div class="stats"><div id="my-id-display" style="margin: 10px 0; color: #YOU | Deck: <span id="my-deck">0</span> | AP: <span id="my-apf1c40f;"></div>
-    <div id="setup-controls">
-        <button onclick="">0</span> | Trash: <span id="my-trash">0</span></div>
-        <div id="myhostGame()" class="primary">部屋を作る (Host)</button>
-        <div style="margin-top:-field" class="field"></div>
-        <div id="my-hand" class="hand"></div>
- 15px;">
-            <input id="join-id" placeholder="相手のIDを入力" style="    </div>
-</div>
-
-<div class="controls" id="game-controls">
-    <button id="btnpadding: 8px; width: 70%;">
-            <button onclick="joinGame()">参加</button-SUMMON" onclick="setMode('SUMMON')">招集</button>
-    <button id=">
-        </div>
-    </div>
-</div>
-
-<div id="mode-selection-modal" class="modal">btn-SPELL" onclick="setMode('SPELL')">スペル</button>
-    <button id
     <div class="modal-content">
         <h2>ルール設定</h2>
-        <button class="primary"="btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
-    <button id onclick="requestRuleMode('basic')">基本ルール</button>
-        <button class="primary" onclick="="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退</button>
-    <buttonrequestRuleMode('style')">採用型ルール</button>
+        <button class="primary" onclick="requestRuleMode('basic')">基本ルール</button>
+        <button class="primary" onclick="requestRuleMode('style')">採用型ルール</button>
     </div>
 </div>
 
-<div id="red class="primary" onclick="endTurn()">ターン終了</button>
-</div>
-<div id="game-log-spell-modal" class="modal">
+<div id="setup-modal" class="modal">
     <div class="modal-content">
-        <h3>赤スペ" class="log-container"></div>
+        <h2>スタイル選択 (残りSP: <span id="remaining-sp">4</span>)</h2>
+        <div id="style-list" class="style-grid"></div>
+        <button id="style-ready-btn" class="primary" onclick="readyWithStyles()">準備完了</button>
+        <p id="waiting-msg" style="display:none; color:#f1c40f;">相手の準備を待っています...</p>
+    </div>
+</div>
 
-<script>
-const SUITS = { S: '♠', Hルの効果選択</h3>
-        <button class="primary" onclick="resolveRedChoice('DRAW')">1ドロー</button: '♥', C: '♣', D: '♦', J: '★' };
-let peer,>
-        <button class="primary" onclick="resolveRedChoice('RECOVER')">墓地から回収</ conn, isHost = false, myRole = null; 
-let gameState = { p1: null, pbutton>
+<div id="red-spell-modal" class="modal">
+    <div class="modal-content">
+        <h3>赤スペルの効果選択</h3>
+        <button class="primary" onclick="resolveRedChoice('DRAW')">1ドロー</button>
+        <button class="primary" onclick="resolveRedChoice('RECOVER')">墓地から回収</button>
     </div>
 </div>
 
 <div id="trash-modal" class="modal">
-    <div2: null, turn: 1, started: false, ruleMode: null };
-let currentMode = ' class="modal-content">
-        <h3>回収するカードを選択してください</h3>
-        <div id="trash-displayIDLE', selectedCards = [], spellMainIdx = null;
-
-peer = new Peer();
-peer.on('" class="trash-list"></div>
+    <div class="modal-content">
+        <h3>回収カードを選択</h3>
+        <div id="trash-display" class="trash-list"></div>
     </div>
 </div>
 
-<div id="mode-text" style="open', id => { 
-    document.getElementById('my-id-display').innerText = "あなたのID: " +color:#f1c40f; font-weight:bold; height: 20px; margin- id; 
-    document.getElementById('status').innerText = "準備完了"; 
-});
-peer.onbottom:5px;"></div>
+<div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px; margin-bottom:5px;"></div>
 
 <div id="game-board">
-    <div id="opp-area('connection', c => { 
-    conn = c; isHost = true; myRole = 'p1'; setupConn" class="player-area">
-        <div class="stats">ENEMY | Deck: <span id="opp(); 
-});
-
-function hostGame() { document.getElementById('setup-controls').innerText = "ホストとして-deck">0</span> | AP: <span id="opp-ap">0</span> | Trash: <span id="opp-trash">0</span></div>
-        <button id="direct-btn" class="direct-attack-待機中..."; }
-function joinGame() { 
-    const id = document.getElementById('join-idbtn" onclick="executeDirectAttack()">直接攻撃！</button>
-        <div id="opp-field"').value; 
-    if(id) { conn = peer.connect(id); isHost = false; class="field"></div>
+    <div id="opp-area" class="player-area">
+        <div class="stats">ENEMY | Deck: <span id="opp-deck">0</span> | AP: <span id="opp-ap">0</span> | Trash: <span id="opp-trash">0</span></div>
+        <button id="direct-btn" class="direct-attack-btn" onclick="executeDirectAttack()">直接攻撃！</button>
+        <div id="opp-field" class="field"></div>
         <div id="opp-hand" class="hand"></div>
     </div>
- myRole = 'p2'; setupConn(); } 
-}
-
-function setupConn() {
-    conn.    <div id="my-area" class="player-area">
-        <div class="stats">YOUon('open', () => {
-        document.getElementById('connection-panel').style.display = 'none';
-        document.getElementById('mode-selection-modal').style.display = 'flex';
-        if(!is | Deck: <span id="my-deck">0</span> | AP: <span id="my-ap">0</span> | Trash: <span id="my-trash">0</span></div>
-        <div id="my-Host) document.querySelector('#mode-selection-modal .modal-content').innerText = "ホストのルール選択をfield" class="field"></div>
+    <div id="my-area" class="player-area">
+        <div class="stats">YOU | Deck: <span id="my-deck">0</span> | AP: <span id="my-ap">0</span> | Trash: <span id="my-trash">0</span></div>
+        <div id="my-field" class="field"></div>
         <div id="my-hand" class="hand"></div>
-    待っています...";
-    });
-    conn.on('data', data => handleData(data));
-}
-
-</div>
+    </div>
 </div>
 
 <div class="controls" id="game-controls">
-    <button id="btn-function handleData(data) {
-    console.log("Receive Data:", data.type);
-    switch(data.typeSUMMON" onclick="setMode('SUMMON')">招集</button>
-    <button id="btn) {
-        case 'RULE_SELECT':
-            gameState.ruleMode = data.payload;
-            if-SPELL" onclick="setMode('SPELL')">スペル</button>
-    <button id="(isHost) {
-                initGame(); // ホストなら初期化して開始
-            } else {
-                btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
+    <button id="btn-SUMMON" onclick="setMode('SUMMON')">招集</button>
+    <button id="btn-SPELL" onclick="setMode('SPELL')">スペル</button>
+    <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
     <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退</button>
-    <button class// ゲストはホストからのSYNCを待つ
-                document.querySelector('#mode-selection-modal').style.display =="primary" onclick="endTurn()">ターン終了</button>
+    <button class="primary" onclick="endTurn()">ターン終了</button>
 </div>
-<div id="game-log" 'none';
-            }
-            break;
-        case 'SYNC':
-            gameState = data.payload; class="log-container"></div>
+<div id="game-log" class="log-container"></div>
 
 <script>
-const SUITS = { S: '♠', H:
-            if(gameState.started) { 
-                showGameBoardUI(); 
-                updateUI(); 
-            } '♥', C: '♣', D: '♦', J: '★' };
-let peer, conn
-            break;
-        case 'LOG':
-            writeLog(data.payload.msg, data.payload, isHost = false, myRole = null; 
-let gameState = { p1: null, p2.type);
-            break;
-        case 'ACTION':
-            if(isHost) {
-                if: null, turn: 1, started: false, ruleMode: null };
-let currentMode = 'ID(data.payload.type === 'END_TURN') endTurn();
-                else executeAction(data.payloadLE', selectedCards = [], spellMainIdx = null;
+const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
+const STYLES_DEF = [
+    {id: "aceShot", name: "エースショット", rank: 1, sp: 1, desc: "A撤退時3ダメ"},
+    {id: "bukkumi2", name: "ぶっこみツー", rank: 2, sp: 1, desc: "2で敵撃破時AP+1"},
+    {id: "noCost8", name: "ノーコスエイト", rank: 8, sp: 1, desc: "8スペルAP0"},
+    {id: "queenOrder", name: "クイーンズオーダー", rank: 12, sp: 1, desc: "Q使用時2ダメ"}
+];
+
+let peer, conn, isHost = false, myRole = null; 
+let gameState = { p1: null, p2: null, turn: 1, started: false, ruleMode: null };
+let myStyles = [], oppStyles = [], oppReady = false, myReady = false;
+let currentMode = 'IDLE', selectedCards = [], spellMainIdx = null;
 
 peer = new Peer();
-peer.on('open.type, data.payload.params);
-                sync();
-            }
-            break;
-    }
-', id => { document.getElementById('my-id-display').innerText = "あなたのID: " + id;}
+peer.on('open', id => { document.getElementById('my-id-display').innerText = "あなたのID: " + id; document.getElementById('status').innerText = "準備完了"; });
+peer.on('connection', c => { conn = c; isHost = true; myRole = 'p1'; setupConn(); });
 
-function initGame() {
-    if(!isHost) return;
-    gameState.started = true; document.getElementById('status').innerText = "準備完了"; });
-peer.on('connection', c => { conn
-    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], = c; isHost = true; myRole = 'p1'; setupConn(); });
+function hostGame() { document.getElementById('setup-controls').innerText = "接続待機中..."; }
+function joinGame() { const id = document.getElementById('join-id').value; if(id) { conn = peer.connect(id); isHost = false; myRole = 'p2'; setupConn(); } }
 
-function hostGame() field:[], trash:[], ap:0 };
-    gameState.p2 = { name:"Guest", deck:createDeck { document.getElementById('setup-controls').innerText = "接続待機中..."; }
-function joinGame() {(['C','D']), hand:[], field:[], trash:[], ap:0 };
-    for(let i const id = document.getElementById('join-id').value; if(id) { conn = peer.connect(=0; i<3; i++) { 
-        gameState.p1.hand.push(gameState.p1id); isHost = false; myRole = 'p2'; setupConn(); } }
-
-function setupConn().deck.pop()); 
-        gameState.p2.hand.push(gameState.p2.deck. {
+function setupConn() {
     conn.on('open', () => {
-        document.getElementById('connection-panel').style.pop()); 
-    }
-    gameState.turn = 1;
-    logToBoth("GAME START!",display = 'none';
-        document.getElementById('mode-selection-modal').style.display = 'flex'; "sys");
-    showGameBoardUI();
-    startTurn();
-}
-
-function showGameBoardUI() {
-    document
-        if(!isHost) document.querySelector('#mode-selection-modal .modal-content').innerText = ".querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    document.getElementById('ホストがルールを選んでいます...";
+        document.getElementById('connection-panel').style.display = 'none';
+        document.getElementById('mode-selection-modal').style.display = 'flex';
+        if(!isHost) document.querySelector('#mode-selection-modal .modal-content').innerText = "ホストの選択を待っています...";
     });
     conn.on('data', data => handleData(data));
-}game-board').style.display = 'flex';
-    document.getElementById('game-controls').style.display
+}
 
 function handleData(data) {
-    if(!data) return;
     switch(data.type) {
         case 'RULE_SELECT':
             gameState.ruleMode = data.payload;
-            document. = 'flex';
-    document.getElementById('game-log').style.display = 'block';
-    documentgetElementById('mode-selection-modal').style.display = 'none';
-            if(isHost && gameState..getElementById('mode-text').style.display = 'block';
-}
-
-function startTurn() {
-    ruleMode === 'basic') {
+            document.getElementById('mode-selection-modal').style.display = 'none'; // 確実に閉じる
+            if(gameState.ruleMode === 'style') {
+                document.getElementById('setup-modal').style.display = 'flex';
+                renderStyleSelection();
+            } else if(isHost) {
                 initGame();
             }
             break;
+        case 'READY_STYLES':
+            oppStyles = data.payload.styles;
+            oppReady = true;
+            if(isHost && myReady) initGame();
+            break;
         case 'SYNC':
-            const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    for(let i=0; i<2; i++) if(p.deck.length > 0) pgameState = data.payload;
+            gameState = data.payload;
             if(gameState.started) { showGameBoardUI(); updateUI(); }
-.hand.push(p.deck.pop());
-    p.ap = Math.min(p.hand            break;
+            break;
         case 'LOG':
-            writeLog(data.payload.msg, data.payload..length, 10);
-    p.field.forEach(c => c.tapped = false);type);
+            writeLog(data.payload.msg, data.payload.type);
             break;
         case 'ACTION':
             if(isHost) {
-                if(
-    logToBoth(`--- ${p.name} ターン開始 (AP:${p.ap}) ---`,data.payload.type === 'END_TURN') endTurn();
+                if(data.payload.type === 'END_TURN') endTurn();
                 else executeAction(data.payload.type, data.payload.params);
                 sync();
             }
             break;
     }
-} "sys");
-    sync();
 }
-
-function sync() { 
-    if(isHost) send('SYNC', gameState
-
-function writeLog(msg, type) {
-    const logDiv = document.getElementById('game-log');); 
-    updateUI(); 
-}
-
-function send(type, payload) { if(conn && conn
-    if(!logDiv) return;
-    const entry = document.createElement('div');
-    entry..open) conn.send({type, payload}); }
 
 function requestRuleMode(m) {
-    ifclassName = `log-entry log-${type}`;
-    entry.innerText = `[${new Date().toLocaleTimeString(!isHost) return;
-    gameState.ruleMode = m;
-    send('RULE_SELECT', m);()}] ${msg}`;
-    logDiv.insertBefore(entry, logDiv.firstChild);
-}
-
-function log
+    if(!isHost) return;
+    document.getElementById('mode-selection-modal').style.display = 'none';
+    send('RULE_SELECT', m);
     handleData({type:'RULE_SELECT', payload: m});
 }
 
-function writeLog(msg, type)ToBoth(msg, type) {
-    writeLog(msg, type);
-    if(isHost) {
-    const logDiv = document.getElementById('game-log');
-    const entry = document.createElement('div'); send('LOG', { msg, type });
+function renderStyleSelection() {
+    const list = document.getElementById('style-list'); list.innerHTML = '';
+    STYLES_DEF.forEach(s => {
+        const div = document.createElement('div'); div.className = 'style-option';
+        div.innerHTML = `<input type="checkbox" class="style-check" value="${s.id}" data-sp="${s.sp}">
+                         <div style="margin-left:5px;"><b>${s.name}</b>(${s.sp}SP)<br>${s.desc}</div>`;
+        div.querySelector('input').onclick = (e) => {
+            let total = 0; document.querySelectorAll('.style-check:checked').forEach(ck => total += parseInt(ck.dataset.sp));
+            if(total > 4) { e.target.checked = false; total -= parseInt(e.target.dataset.sp); }
+            document.getElementById('remaining-sp').innerText = 4 - total;
+        };
+        list.appendChild(div);
+    });
 }
 
-function sync() { if(isHost) send('SYNC
-    entry.className = `log-entry log-${type}`;
-    entry.innerText = `[${new', gameState); updateUI(); }
-function send(type, payload) { if(conn && conn.open) Date().toLocaleTimeString()}] ${msg}`;
-    logDiv.insertBefore(entry, logDiv.firstChild);
- conn.send({type, payload}); }
-
-function requestRuleMode(m) {
-    if(!isHost}
-
-function logToBoth(msg, type) {
-    writeLog(msg, type);
-    if) return;
-    send('RULE_SELECT', m);
-    handleData({type:'RULE_SELECT', payload:m(isHost) send('LOG', { msg, type });
-}
-
-function updateUI() {
-    if});
+function readyWithStyles() {
+    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
+    myReady = true;
+    send('READY_STYLES', { styles: myStyles });
+    document.getElementById('style-ready-btn').style.display = 'none';
+    document.getElementById('waiting-msg').style.display = 'block';
+    if(isHost && oppReady) initGame();
 }
 
 function initGame() {
     gameState.started = true;
-    gameState.p1 =(!gameState.started) return;
-    const me = (myRole === 'p1' ? gameState.p { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap1 : gameState.p2);
-    const opp = (myRole === 'p1' ? gameState.p:0 };
-    gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[],2 : gameState.p1);
-
-    document.getElementById('my-deck').innerText = me.deck.length field:[], trash:[], ap:0 };
-    for(let i=0; i<3; i;
-    document.getElementById('my-ap').innerText = me.ap;
-    document.getElementById('my++) { 
-        if(gameState.p1.deck.length>0) gameState.p1.hand-trash').innerText = me.trash.length;
-    document.getElementById('opp-deck').innerText = opp.push(gameState.p1.deck.pop());
-        if(gameState.p2.deck.length.deck.length;
-    document.getElementById('opp-ap').innerText = opp.ap;
-    document>0) gameState.p2.hand.push(gameState.p2.deck.pop());
-    }.getElementById('opp-trash').innerText = opp.trash.length;
-
-    renderCards('my-hand',
+    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: (myRole==='p1'?myStyles:oppStyles) };
+    gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: (myRole==='p2'?myStyles:oppStyles) };
+    for(let i=0; i<3; i++) { 
+        if(gameState.p1.deck.length>0) gameState.p1.hand.push(gameState.p1.deck.pop());
+        if(gameState.p2.deck.length>0) gameState.p2.hand.push(gameState.p2.deck.pop());
+    }
     gameState.turn = 1;
-    showGameBoardUI(); // ホストの画面を切り替え
-    logTo me.hand, false, 'me', 'hand');
-    renderCards('my-field', me.fieldBoth("GAME START!", "sys");
+    showGameBoardUI();
+    logToBoth("GAME START!", "sys");
     startTurn();
 }
 
-function startTurn() {
-    if, false, 'me', 'field');
-    renderCards('opp-hand', opp.hand, true,(!isHost) return;
-    const p = (gameState.turn === 1 ? gameState.p1 : gameState 'opp', 'hand');
-    renderCards('opp-field', opp.field, false, 'opp', 'field');
-
-    const isMyTurn = (gameState.turn === (myRole === 'p1' ?.p2);
-    for(let i=0; i<2; i++) if(p.deck 1 : 2));
-    document.getElementById('my-area').className = 'player-area' +.length > 0) p.hand.push(p.deck.pop());
-    p.ap = Math.min(p.hand.length, 10);
-    p.field.forEach(c => (isMyTurn ? ' active-area' : '');
-    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
-
-    document.getElementById(' c.tapped = false);
-    logToBoth(`--- ${p.name} ターン開始 (AP:${p.ap}) ---`, "sys");
-    sync();
+function showGameBoardUI() {
+    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+    document.getElementById('game-board').style.display = 'flex';
+    document.getElementById('game-controls').style.display = 'flex';
+    document.getElementById('game-log').style.display = 'block';
 }
 
-function showGameBoardUI() {
-    document.direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
+function writeLog(msg, type) {
+    const logDiv = document.getElementById('game-log');
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${type}`;
+    entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logDiv.insertBefore(entry, logDiv.firstChild);
+}
 
-    querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    document.getElementById('game['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW'].forEach(m => {
-        const-board').style.display = 'flex';
-    document.getElementById('game-controls').style.display = btn = document.getElementById(`btn-${m}`);
-        if(currentMode === m || (currentMode.startsWith 'flex';
-    document.getElementById('game-log').style.display = 'block';
+function logToBoth(msg, type) { writeLog(msg, type); if(isHost) send('LOG', { msg, type }); }
+function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
+function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
+
+function startTurn() {
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    for(let i=0; i<2; i++) if(p.deck.length > 0) p.hand.push(p.deck.pop());
+    p.ap = Math.min(p.hand.length, 10);
+    p.field.forEach(c => c.tapped = false);
+    logToBoth(`--- ${p.name} ターン開始 ---`, "sys");
+    sync();
 }
 
 function updateUI() {
     if(!gameState.started || !gameState.p1) return;
-    const me('SPELL_'))) btn.classList.add('active-mode');
-        else btn.classList.remove(' = (myRole === 'p1' ? gameState.p1 : gameState.p2);
-    const oppactive-mode');
-    });
-}
+    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
 
-function renderCards(id, cards, isBack, owner, area = (myRole === 'p1' ? gameState.p2 : gameState.p1);
-
-    document.) {
-    const container = document.getElementById(id); container.innerHTML = '';
-    cards.forEach((getElementById('my-deck').innerText = me.deck.length;
-    document.getElementById('my-ap').c, i) => {
-        const div = document.createElement('div');
-        div.className = isinnerText = me.ap;
-    document.getElementById('my-trash').innerText = me.trash.length;Back ? 'card back' : `card ${c.red ? 'red' : ''} ${c.is
+    document.getElementById('my-deck').innerText = me.deck.length;
+    document.getElementById('my-ap').innerText = me.ap;
+    document.getElementById('my-trash').innerText = me.trash.length;
     document.getElementById('opp-deck').innerText = opp.deck.length;
-    document.getElementById('Joker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
-opp-ap').innerText = opp.ap;
-    document.getElementById('opp-trash').innerText = opp.        if(!isBack) {
-            if(owner === 'me' && area === 'hand' && itrash.length;
+    document.getElementById('opp-ap').innerText = opp.ap;
+    document.getElementById('opp-trash').innerText = opp.trash.length;
 
-    renderCards('my-hand', me.hand, false, 'me', 'hand === spellMainIdx) div.classList.add('spell-main');
-            if(owner === 'me'');
+    renderCards('my-hand', me.hand, false, 'me', 'hand');
     renderCards('my-field', me.field, false, 'me', 'field');
-     && (selectedCards.some(s => s.idx === i && s.area === area))) div.classList.addrenderCards('opp-hand', opp.hand, true, 'opp', 'hand');
-    renderCards('('selected');
-            if(owner === 'opp' && area === 'field' && (currentMode === 'opp-field', opp.field, false, 'opp', 'field');
+    renderCards('opp-hand', opp.hand, true, 'opp', 'hand');
+    renderCards('opp-field', opp.field, false, 'opp', 'field');
 
-    const isMyTurn = (ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target');
-gameState.turn === (myRole === 'p1' ? 1 : 2));
-    document.getElementById            
-            let val = c.isJoker ? 'JOK' : (c.rank === 1('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : ? 'A' : (c.rank === 11 ? 'J' : (c.rank ===  '');
-    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ?12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank)))); ' active-area' : '');
+    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
+    document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
+    document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
+    document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
 
-    document.getElementById('direct-btn').style.display = (isMy
-            div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}Turn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length ===</div>`;
-        }
-        div.onclick = () => handleCardClick(owner, area, i);
- 0) ? 'block' : 'none';
-
-    ['SUMMON', 'SPELL', 'ATTACK        container.appendChild(div);
-    });
-}
-
-function handleCardClick(owner, area, idx) {
-    if(gameState.turn !== (myRole === 'p1' ? 1 : 2))', 'WITHDRAW'].forEach(m => {
+    ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW'].forEach(m => {
         const btn = document.getElementById(`btn-${m}`);
-        if(btn) {
-            if(currentMode === m || (currentMode.startsWith('SPELL_'))) btn. return;
-    const me = (myRole === 'p1' ? gameState.p1 : gameState.pclassList.add('active-mode');
-            else btn.classList.remove('active-mode');
-        }2);
-
-    if(currentMode === 'SUMMON' && owner === 'me' && area === 'hand
+        if(currentMode === m || currentMode.startsWith('SPELL_')) btn.classList.add('active-mode');
+        else btn.classList.remove('active-mode');
     });
 }
 
 function renderCards(id, cards, isBack, owner, area) {
-    ') requestAction('SUMMON', {idx});
-    else if(currentMode === 'WITHDRAW' && ownerconst container = document.getElementById(id); if(!container) return;
-    container.innerHTML = '';
-    cards. === 'me' && area === 'field') requestAction('WITHDRAW', {idx});
-    else if(currentMode === 'ATTACK') {
-        if(owner === 'me' && area === 'field') {forEach((c, i) => {
+    const container = document.getElementById(id); container.innerHTML = '';
+    cards.forEach((c, i) => {
         const div = document.createElement('div');
-        div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c
-            if(me.field[idx].tapped) return;
-            const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field');
-            if(exist !== -1.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
+        div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`;
         if(!isBack) {
-            if(owner === 'me' && area === 'hand') selectedCards.splice(exist, 1);
-            else selectedCards.push({idx, area:'field && i === spellMainIdx) div.classList.add('spell-main');
-            if(owner === ''});
-        } else if(owner === 'opp' && area === 'field' && selectedCards.length >me' && selectedCards.some(s => s.idx === i && s.area === area)) div. 0) {
-            requestAction('COMBAT', {atkIdxs: selectedCards.map(s =>classList.add('selected');
-            if(owner === 'opp' && area === 'field' && (current s.idx), defIdx: idx});
-            selectedCards = [];
+            if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main');
+            if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected');
+            if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target');
+            let val = c.isJoker ? 'JOK' : (c.rank === 1 ? 'A' : (c.rank === 11 ? 'J' : (c.rank === 12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank))));
+            div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}</div>`;
         }
-    }
-    elseMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can- if(currentMode === 'SPELL' && owner === 'me' && area === 'hand') {
-        target');
-            let val = c.isJoker ? 'JOK' : (c.rank === spellMainIdx = idx;
-        const card = me.hand[idx];
-        if(card.is1 ? 'A' : (c.rank === 11 ? 'J' : (c.rank ===Joker || card.rank === 1) requestAction('SPELL_MAIN', {idx, costIdxs 12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank: []});
-        else currentMode = 'SPELL_COST';
-    }
-    else if(current))));
-            div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${valMode === 'SPELL_COST' && owner === 'me') {
-        if(area === 'hand'}</div>`;
-        }
-        div.onclick = () => handleCardClick(owner, area, i); && idx === spellMainIdx) return;
-        const exist = selectedCards.findIndex(s => s.idx
+        div.onclick = () => handleCardClick(owner, area, i);
         container.appendChild(div);
     });
 }
 
-function handleCardClick(owner, area, idx === idx && s.area === area);
+function handleCardClick(owner, area, idx) {
+    if(gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
+    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+
+    if(currentMode === 'SUMMON' && owner === 'me' && area === 'hand') requestAction('SUMMON', {idx});
+    else if(currentMode === 'WITHDRAW' && owner === 'me' && area === 'field') requestAction('WITHDRAW', {idx});
+    else if(currentMode === 'ATTACK') {
+        if(owner === 'me' && area === 'field') {
+            if(me.field[idx].tapped) return;
+            const exist = selectedCards.findIndex(s => s.idx === idx && s.area === 'field');
+            if(exist !== -1) selectedCards.splice(exist, 1);
+            else selectedCards.push({idx, area:'field'});
+        } else if(owner === 'opp' && area === 'field' && selectedCards.length > 0) {
+            requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx});
+            selectedCards = [];
+        }
+    }
+    else if(currentMode === 'SPELL' && owner === 'me' && area === 'hand') {
+        spellMainIdx = idx;
+        const card = me.hand[idx];
+        if(card.isJoker || card.rank === 1) requestAction('SPELL_MAIN', {idx, costIdxs: []});
+        else currentMode = 'SPELL_COST';
+    }
+    else if(currentMode === 'SPELL_COST' && owner === 'me') {
+        if(area === 'hand' && idx === spellMainIdx) return;
+        const exist = selectedCards.findIndex(s => s.idx === idx && s.area === area);
         if(exist !== -1) selectedCards.splice(exist, 1);
         else selectedCards.push({idx, area});
 
-        const totalCost = selectedCards) {
-    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
-    if(!isMyTurn) return;
-    const me = (myRole ===.reduce((s, item) => s + me[item.area][item.idx].rank, 0 'p1' ? gameState.p1 : gameState.p2);
-
-    if(currentMode === 'SUM);
+        const totalCost = selectedCards.reduce((s, item) => s + me[item.area][item.idx].rank, 0);
         if(totalCost >= me.hand[spellMainIdx].rank - 1) {
-            MON' && owner === 'me' && area === 'hand') requestAction('SUMMON', {idx});
-requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards});
-                else if(currentMode === 'WITHDRAW' && owner === 'me' && area === 'field') requestselectedCards = []; spellMainIdx = null; currentMode = 'IDLE';
+            requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards});
+            selectedCards = []; spellMainIdx = null; currentMode = 'IDLE';
         }
     }
-Action('WITHDRAW', {idx});
-    else if(currentMode === 'ATTACK') {
-        if    else if(currentMode === 'SPELL_TARGET' && owner === 'opp' && area === 'field(owner === 'me' && area === 'field') {
-            if(me.field[idx].t') {
+    else if(currentMode === 'SPELL_TARGET' && owner === 'opp' && area === 'field') {
         requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx});
-        currentapped) return;
-            const exist = selectedCards.findIndex(s => s.idx === idx && s.Mode = 'IDLE';
+        currentMode = 'IDLE';
     }
     updateUI();
 }
 
-function requestAction(type, paramsarea === 'field');
-            if(exist !== -1) selectedCards.splice(exist, 1);) {
-    if(isHost) { executeAction(type, params); sync(); } else { send('ACTION
-            else selectedCards.push({idx, area:'field'});
-        } else if(owner === 'opp', {type, params}); }
-}
+function requestAction(type, params) { if(isHost) { executeAction(type, params); sync(); } else { send('ACTION', {type, params}); } }
 
 function executeAction(type, params) {
-    const p =' && area === 'field' && selectedCards.length > 0) {
-            requestAction('COMBAT (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    const opp = (', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx});
-            gameState.turn === 1 ? gameState.p2 : gameState.p1);
-
-    if(type === 'selectedCards = [];
-        }
-    }
-    else if(currentMode === 'SPELL' && ownerSUMMON') {
-        const c = p.hand.splice(params.idx, 1)[0]; === 'me' && area === 'hand') {
-        spellMainIdx = idx;
-        const card =
-        p.field.push(c); p.ap--;
-        logToBoth(`${p.name}: me.hand[idx];
-        if(card.isJoker || card.rank === 1) request ${getCardName(c)} を招集`, "usr");
-    }
-    else if(type ===Action('SPELL_MAIN', {idx, costIdxs: []});
-        else currentMode = 'SPE 'WITHDRAW') {
-        const c = p.field.splice(params.idx, 1)[0LL_COST';
-    }
-    else if(currentMode === 'SPELL_COST' && owner ===];
-        const cost = c.tapped ? 2 : 1;
-        p.deck.unshift 'me') {
-        if(area === 'hand' && idx === spellMainIdx) return;
-        (c); p.ap -= cost;
-        logToBoth(`${p.name}: ${getCardName(const exist = selectedCards.findIndex(s => s.idx === idx && s.area === area);
-        c)} を撤退 (AP:${cost})`, "usr");
-    }
-    else if(type === 'COMBAT') {
-        const attackers = params.atkIdxs.map(i => p.field[i]);if(exist !== -1) selectedCards.splice(exist, 1);
-        else selectedCards.push
-        const defender = opp.field[params.defIdx];
-        const sameColor = attackers[0].red({idx, area});
-        const totalCost = selectedCards.reduce((s, item) => s + me[item.area][item.idx].rank, 0);
-        if(totalCost >= me.hand === defender.red && !attackers[0].isJoker;
-        attackers.forEach(a =>[spellMainIdx].rank - 1) {
-            requestAction('SPELL_MAIN', {idx: a.tapped = true); p.ap--;
-        
-        const atkPower = attackers.reduce((s spellMainIdx, costIdxs: selectedCards});
-            selectedCards = []; spellMainIdx = null; currentMode = 'IDLE';
-        }
-    }
-    else if(currentMode === 'SPELL_,c) => s + c.rank, 0);
-        logToBoth(`戦闘: ${attackersTARGET' && owner === 'opp' && area === 'field') {
-        requestAction('SPELL_BLACK.map(a => getCardName(a)).join("+")}(計${atkPower}) VS ${getCard_RESOLVE', {targetIdx: idx});
-        currentMode = 'IDLE';
-    }
-    Name(defender)} [${sameColor ? '同色' : '異色'}]`, "atk");
-
-updateUI();
-}
-
-function requestAction(type, params) {
-    if(isHost) { execute        if(!sameColor || atkPower >= defender.rank) {
-            const d = opp.field.spliceAction(type, params); sync(); } else { send('ACTION', {type, params}); }
-}
-
-function execute(params.defIdx, 1)[0]; opp.trash.push(d);
-            logToBothAction(type, params) {
-    const p = (gameState.turn === 1 ? gameState.p1(`結果: ${getCardName(d)} 破壊`, "atk");
-            if(sameColor) {
-                log : gameState.p2);
-    const opp = (gameState.turn === 1 ? gameState.p2 :ToBoth(`${opp.name} に1ダメージ`, "atk");
-                if(opp.deck.length > gameState.p1);
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
 
     if(type === 'SUMMON') {
-        const c = p.hand 0) opp.hand.push(opp.deck.pop());
-            }
-        } else {
-.splice(params.idx, 1)[0]; p.field.push(c); p.ap--;
-            logToBoth(`結果: 返り討ち`, "atk");
-            params.atkIdxs.sort((        logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr");
-a,b)=>b-a).forEach(i => p.trash.push(p.field.splice(    }
+        const c = p.hand.splice(params.idx, 1)[0];
+        p.field.push(c); p.ap--;
+        logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr");
+    }
     else if(type === 'WITHDRAW') {
-        const c = p.field.splicei,1)[0]));
+        const c = p.field.splice(params.idx, 1)[0];
+        const cost = c.tapped ? 2 : 1;
+        p.deck.unshift(c); p.ap -= cost;
+        logToBoth(`${p.name}: ${getCardName(c)} を撤退`, "usr");
+    }
+    else if(type === 'COMBAT') {
+        const attackers = params.atkIdxs.map(i => p.field[i]);
+        const defender = opp.field[params.defIdx];
+        const sameColor = attackers[0].red === defender.red && !attackers[0].isJoker;
+        const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
+        attackers.forEach(a => a.tapped = true); p.ap--;
+        
+        logToBoth(`戦闘: ${attackers.map(a => getCardName(a)).join("+")}(パワー${atkPower}) VS ${getCardName(defender)} [${sameColor ? '同色' : '異色'}]`, "atk");
+        if(!sameColor || atkPower >= defender.rank) {
+            const d = opp.field.splice(params.defIdx, 1)[0]; opp.trash.push(d);
+            logToBoth(`${getCardName(d)} を破壊`, "atk");
+            if(sameColor) { if(opp.deck.length > 0) opp.hand.push(opp.deck.pop()); logToBoth(`${opp.name} に1ダメージ`, "atk"); }
+        } else {
+            logToBoth("返り討ち！", "atk");
+            params.atkIdxs.sort((a,b)=>b-a).forEach(i => p.trash.push(p.field.splice(i,1)[0]));
         }
     }
     else if(type === 'DIRECT') {
-(params.idx, 1)[0];
-        const cost = c.tapped ? 2 : 1;
-        params.idxs.forEach(i => p.field[i].tapped = true); p.ap--;        p.deck.unshift(c); p.ap -= cost;
-        logToBoth(`${p.name
-        logToBoth(`${p.name}: 直接攻撃！ ${opp.name} に2ダメージ`, "atk}: ${getCardName(c)} を撤退 (AP:${cost})`, "usr");
-    }
-");
-        for(let i=0; i<2; i++) if(opp.deck.length >    else if(type === 'COMBAT') {
-        const attackers = params.atkIdxs.map( 0) opp.hand.push(opp.deck.pop());
-    }
-    else if(typei => p.field[i]);
-        const defender = opp.field[params.defIdx];
-         === 'SPELL_MAIN') {
-        const main = p.hand[params.idx];
-        constconst sameColor = (attackers[0].red === defender.red && !attackers[0].isJ costs = params.costIdxs.map(item => getCardName(p[item.area][item.idxoker);
-        attackers.forEach(a => a.tapped = true); p.ap--;
-        ]));
-        const costCards = [];
-        params.costIdxs.sort((a,b) => b.idxconst atkPower = attackers.reduce((s,c) => s + c.rank, 0);
-        logToBoth(`戦闘: ${attackers.map(a => getCardName(a)).join("+")}( - a.idx).forEach(item => costCards.push(p[item.area].splice(item.計${atkPower}) VS ${getCardName(defender)} [${sameColor ? '同色' : 'idx, 1)[0]));
-        
-        const finalMain = p.hand.splice(p.hand.indexOf(main), 1)[0];
-        p.trash.push(finalMain); costCards.異色'}]`, "atk");
-        if(!sameColor || atkPower >= defender.rank) {
-            const dforEach(c => p.trash.push(c)); p.ap--;
-
-        logToBoth(`${p. = opp.field.splice(params.defIdx, 1)[0]; opp.trash.push(dname}: スペル ${getCardName(finalMain)} 発動 (コスト: ${costs.join(",") || ");
-            logToBoth(`${getCardName(d)} を破壊！`, "atk");
-            if(sameColor)なし"})`, "spl");
-        
-        if(finalMain.isJoker || finalMain.red) {
-                logToBoth(`${opp.name} に1ダメ`, "atk");
-                if(opp.deck.length {
-            if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) document.getElementById('red-spell-modal').style.display = 'flex';
-        } else if( > 0) opp.hand.push(opp.deck.pop());
-            }
-        } else {opp.field.length > 0) {
-            if(myRole === (gameState.turn === 1
-            logToBoth("返り討ち！", "atk");
-            params.atkIdxs.sort ? 'p1' : 'p2')) currentMode = 'SPELL_TARGET';
-        }
-    ((a,b)=>b-a).forEach(i => p.trash.push(p.field.splice}
-    else if(type === 'SPELL_RED_RESOLVE') {
-        if(params.(i,1)[0]));
-        }
-    }
-    else if(type === 'DIRECT') {choice === 'DRAW') {
-            if(p.deck.length > 0) p.hand.push
-        params.idxs.forEach(i => p.field[i].tapped = true); p.ap(p.deck.pop());
-            logToBoth(`${p.name}: 効果 [1ドロー] --;
-        logToBoth(`${p.name}: 直接攻撃！`, "atk");
-        for(let i選択`, "spl");
-        } else {
-            logToBoth(`${p.name}: 効果 [墓地=0; i<2; i++) if(opp.deck.length > 0) opp.hand.回収] 選択`, "spl");
-            if(myRole === (gameState.turn === 1 ? 'push(opp.deck.pop());
+        params.idxs.forEach(i => p.field[i].tapped = true); p.ap--;
+        logToBoth(`${p.name}: 直接攻撃！ 2ダメージ`, "atk");
+        for(let i=0; i<2; i++) if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
     }
     else if(type === 'SPELL_MAIN') {
         const main = p.hand[params.idx];
-        const costNames = params.costIdxp1' : 'p2')) showTrashModal(p.trash);
+        const costNames = params.costIdxs.map(item => getCardName(p[item.area][item.idx]));
+        const costCards = [];
+        params.costIdxs.sort((a,b) => b.idx - a.idx).forEach(item => costCards.push(p[item.area].splice(item.idx, 1)[0]));
+        const finalMain = p.hand.splice(p.hand.indexOf(main), 1)[0];
+        p.trash.push(finalMain); costCards.forEach(c => p.trash.push(c)); p.ap--;
+
+        logToBoth(`${p.name}: スペル ${getCardName(finalMain)} 発動 (コスト: ${costNames.join(",") || "なし"})`, "spl");
+        if(finalMain.isJoker || finalMain.red) {
+            if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) document.getElementById('red-spell-modal').style.display = 'flex';
+        } else if(opp.field.length > 0) {
+            if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) currentMode = 'SPELL_TARGET';
         }
     }
-    s.map(item => getCardName(p[item.area][item.idx]));
-        const costelse if(type === 'SPELL_RECOVER_FINISH') {
-        const recovered = p.trashCards = [];
-        params.costIdxs.sort((a,b) => b.idx - a..splice(params.trashIdx, 1)[0];
+    else if(type === 'SPELL_RED_RESOLVE') {
+        if(params.choice === 'DRAW') {
+            if(p.deck.length > 0) p.hand.push(p.deck.pop());
+            logToBoth(`${p.name}: 1枚ドローを選択`, "spl");
+        } else {
+            logToBoth(`${p.name}: 墓地回収を選択`, "spl");
+            if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) showTrashModal(p.trash);
+        }
+    }
+    else if(type === 'SPELL_RECOVER_FINISH') {
+        const recovered = p.trash.splice(params.trashIdx, 1)[0];
         p.hand.push(recovered);
-        logToBoth(`${p.name}: 墓地から ${getCardName(recovered)} を回収`, "idx).forEach(item => costCards.push(p[item.area].splice(item.idx, spl");
+        logToBoth(`${p.name}: 墓地から ${getCardName(recovered)} を回収`, "spl");
     }
     else if(type === 'SPELL_BLACK_RESOLVE') {
-        1)[0]));
-        const finalMain = p.hand.splice(p.hand.indexOf(main),const d = opp.field.splice(params.targetIdx, 1)[0];
-        opp.trash 1)[0];
-        p.trash.push(finalMain); costCards.forEach(c => p.trash.push(c)); p.ap--;
-        logToBoth(`${p.name}: スペル ${.push(d);
-        logToBoth(`${p.name}: スペル破壊 -> ${getCardName(d)}`,getCardName(finalMain)} (コスト: ${costNames.join(",") || "なし"})`, "spl"); "spl");
+        const d = opp.field.splice(params.targetIdx, 1)[0];
+        opp.trash.push(d);
+        logToBoth(`${p.name}: スペルで ${getCardName(d)} を破壊`, "spl");
     }
 }
 
-function resolveRedChoice(choice) {
-    document.getElementById('red
-        if(finalMain.isJoker || finalMain.red) {
-            if(myRole ===-spell-modal').style.display = 'none';
-    requestAction('SPELL_RED_RESOLVE (gameState.turn === 1 ? 'p1' : 'p2')) document.getElementById('red-spell', {choice});
-}
+function resolveRedChoice(choice) { document.getElementById('red-spell-modal').style.display = 'none'; requestAction('SPELL_RED_RESOLVE', {choice}); }
 
 function showTrashModal(trash) {
-    const display = document.getElementById('-modal').style.display = 'flex';
-        } else if(opp.field.length > 0trash-display'); display.innerHTML = '';
+    const display = document.getElementById('trash-display'); display.innerHTML = '';
     trash.forEach((c, i) => {
-        if() {
-            if(myRole === (gameState.turn === 1 ? 'p1' : 'pc.isJoker) return;
-        const div = document.createElement('div');
-        div.className2')) currentMode = 'SPELL_TARGET';
-        }
-    }
-    else if(type === = `card ${c.red ? 'red' : ''}`;
-        let val = (c.rank === 'SPELL_RED_RESOLVE') {
-        if(params.choice === 'DRAW') {
-             1 ? 'A' : (c.rank === 11 ? 'J' : (c.rankif(p.deck.length > 0) p.hand.push(p.deck.pop());
- === 12 ? 'Q' : (c.rank === 13 ? 'K' : c.            logToBoth(`${p.name}: スペル [ドロー]`, "spl");
-        } else {
-            rank))));
-        div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${logToBoth(`${p.name}: スペル [墓地回収]`, "spl");
-            if(myval}</div>`;
-        div.onclick = () => {
-            document.getElementById('trash-modal').style.displayRole === (gameState.turn === 1 ? 'p1' : 'p2')) showTrashModal(p = 'none';
-            requestAction('SPELL_RECOVER_FINISH', {trashIdx: i});.trash);
-        }
-    }
-    else if(type === 'SPELL_RECOVER_FIN
-        };
+        if(c.isJoker) return;
+        const div = document.createElement('div'); div.className = `card ${c.red ? 'red' : ''}`;
+        let val = (c.rank === 1 ? 'A' : (c.rank === 11 ? 'J' : (c.rank === 12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank))));
+        div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}</div>`;
+        div.onclick = () => { document.getElementById('trash-modal').style.display = 'none'; requestAction('SPELL_RECOVER_FINISH', {trashIdx: i}); };
         display.appendChild(div);
     });
-    document.getElementById('trash-modal').ISH') {
-        const recovered = p.trash.splice(params.trashIdx, 1)[0];style.display = 'flex';
+    document.getElementById('trash-modal').style.display = 'flex';
 }
 
-function setMode(m) { currentMode = (currentMode === m) p.hand.push(recovered);
-        logToBoth(`${p.name}: 墓地から ${getCardName( ? 'IDLE' : m; selectedCards = []; spellMainIdx = null; document.getElementById('mode-recovered)} を回収`, "spl");
-    }
-    else if(type === 'SPELL_BLACK_text').innerText = "モード: " + currentMode; updateUI(); }
-function endTurn() { if(RESOLVE') {
-        const d = opp.field.splice(params.targetIdx, 1)[0isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn]; opp.trash.push(d);
-        logToBoth(`${p.name}: スペルで ${get(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; selectedCards = []; }
-function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s =>CardName(d)} を破壊`, "spl");
-    }
-}
-
-function resolveRedChoice(choice) { document.getElementById('red-spell-modal').style.display = 'none'; requestAction('SPELL_ s.idx)}); selectedCards = []; currentMode = 'IDLE'; }
-function createDeck(suits) {RED_RESOLVE', {choice}); }
-
-function showTrashModal(trash) {
-    const display = document.getElementById let d = []; suits.forEach(s => { for(let r=1; r<=13; r++)('trash-display'); display.innerHTML = '';
-    trash.forEach((c, i) => {
-        if(c d.push({suit:s, rank:r, red:(s==='H'||s==='D'),.isJoker) return;
-        const div = document.createElement('div'); div.className = `card ${c. tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true,red ? 'red' : ''}`;
-        let val = (c.rank === 1 ? 'A' red:null, tapped:false}); return d.sort(() => Math.random() - 0.5); : (c.rank === 11 ? 'J' : (c.rank === 12 ? ' }
-function getCardName(c) { if(!c) return ""; if(c.isJoker)Q' : (c.rank === 13 ? 'K' : c.rank))));
-        div. return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===1innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}</div>`;
-        3?'K':c.rank}]`; }
+function setMode(m) { currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = "モード: " + currentMode; updateUI(); }
+function endTurn() { if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; selectedCards = []; }
+function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s => s.idx)}); selectedCards = []; currentMode = 'IDLE'; }
+function createDeck(suits) { let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(() => Math.random() - 0.5); }
+function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank}]`; }
 </script>
 </body>
 </html>
