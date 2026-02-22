@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v3.1</title>
+    <title>THE DECKS Online v4.0</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -17,7 +17,7 @@
         .card { width: 60px; height: 85px; background: white; color: black; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 3px solid transparent; user-select: none; transition: 0.2s; position: relative; }
         .card.red { color: #e74c3c; }
         .card.back { background: #2980b9 !important; border-color: #3498db; }
-        .card.tapped { transform: rotate(10deg); opacity: 0.7; background: #bdc3c7; }
+        .card.tapped { transform: rotate(10deg); opacity: 0.6; background: #bdc3c7; }
         .card.selected { border-color: #3498db; transform: translateY(-8px); box-shadow: 0 5px 15px rgba(52, 152, 219, 0.6); }
         .card.spell-main { border-color: #9b59b6; box-shadow: 0 0 15px #9b59b6; }
         .card.can-target { border-color: #e67e22; animation: blink 0.8s infinite; }
@@ -29,21 +29,20 @@
         .log-sys { color: #00ff00; }
         .log-atk { color: #ff4d4d; font-weight: bold; }
         .log-spl { color: #9b59b6; }
-        .log-usr { color: #00d2ff; }
+        .log-err { color: #ff0; background: #800; }
         button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
         button.primary { background: #f1c40f; color: #000; }
         button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
         .modal-content { background: #34495e; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; }
-        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; max-height: 250px; overflow-y: auto; width: 400px;}
-        .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
         .trash-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; justify-content: center; max-width: 500px; }
-        .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; }
+        .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; border: 2px solid white;}
     </style>
 </head>
 <body>
 
-<h1>THE DECKS Online</h1>
+<h1>THE DECKS Online v4.0</h1>
 
 <div id="connection-panel">
     <div id="status">Peer準備中...</div>
@@ -60,17 +59,7 @@
 <div id="mode-selection-modal" class="modal">
     <div class="modal-content">
         <h2>ルール設定</h2>
-        <button class="primary" onclick="requestRuleMode('basic')">基本ルール</button>
-        <button class="primary" onclick="requestRuleMode('style')">採用型ルール</button>
-    </div>
-</div>
-
-<div id="setup-modal" class="modal">
-    <div class="modal-content">
-        <h2>スタイル選択 (残りSP: <span id="remaining-sp">4</span>)</h2>
-        <div id="style-list" class="style-grid"></div>
-        <button id="style-ready-btn" class="primary" onclick="readyWithStyles()">準備完了</button>
-        <p id="waiting-msg" style="display:none; color:#f1c40f;">相手の準備を待っています...</p>
+        <button class="primary" onclick="requestRuleMode('basic')">基本ルールで開始</button>
     </div>
 </div>
 
@@ -84,8 +73,15 @@
 
 <div id="trash-modal" class="modal">
     <div class="modal-content">
-        <h3>回収カードを選択</h3>
+        <h3>回収カードを選択してください</h3>
         <div id="trash-display" class="trash-list"></div>
+    </div>
+</div>
+
+<div id="game-over-modal" class="modal">
+    <div class="modal-content">
+        <h2 id="winner-text">GAME OVER</h2>
+        <button class="primary" onclick="location.reload()">タイトルへ</button>
     </div>
 </div>
 
@@ -110,22 +106,15 @@
     <button id="btn-SPELL" onclick="setMode('SPELL')">スペル</button>
     <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
     <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退</button>
-    <button class="primary" onclick="endTurn()">ターン終了</button>
+    <button class="primary" id="btn-END" onclick="endTurn()">ターン終了</button>
+    <button style="background: #e74c3c; color: white;" onclick="requestRestart()" id="btn-RESTART">再起動</button>
 </div>
 <div id="game-log" class="log-container"></div>
 
 <script>
 const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
-const STYLES_DEF = [
-    {id: "aceShot", name: "エースショット", rank: 1, sp: 1, desc: "A撤退時3ダメ"},
-    {id: "bukkumi2", name: "ぶっこみツー", rank: 2, sp: 1, desc: "2で敵撃破時AP+1"},
-    {id: "noCost8", name: "ノーコスエイト", rank: 8, sp: 1, desc: "8スペルAP0"},
-    {id: "queenOrder", name: "クイーンズオーダー", rank: 12, sp: 1, desc: "Q使用時2ダメ"}
-];
-
 let peer, conn, isHost = false, myRole = null; 
-let gameState = { p1: null, p2: null, turn: 1, started: false, ruleMode: null };
-let myStyles = [], oppStyles = [], oppReady = false, myReady = false;
+let gameState = { p1: null, p2: null, turn: 1, started: false, gameOver: false };
 let currentMode = 'IDLE', selectedCards = [], spellMainIdx = null;
 
 peer = new Peer();
@@ -139,7 +128,7 @@ function setupConn() {
     conn.on('open', () => {
         document.getElementById('connection-panel').style.display = 'none';
         document.getElementById('mode-selection-modal').style.display = 'flex';
-        if(!isHost) document.querySelector('#mode-selection-modal .modal-content').innerText = "ホストの選択を待っています...";
+        if(!isHost) document.querySelector('#mode-selection-modal .modal-content').innerText = "ホストのルール選択を待っています...";
     });
     conn.on('data', data => handleData(data));
 }
@@ -147,87 +136,26 @@ function setupConn() {
 function handleData(data) {
     switch(data.type) {
         case 'RULE_SELECT':
-            gameState.ruleMode = data.payload;
-            document.getElementById('mode-selection-modal').style.display = 'none'; // 確実に閉じる
-            if(gameState.ruleMode === 'style') {
-                document.getElementById('setup-modal').style.display = 'flex';
-                renderStyleSelection();
-            } else if(isHost) {
-                initGame();
-            }
-            break;
-        case 'READY_STYLES':
-            oppStyles = data.payload.styles;
-            oppReady = true;
-            if(isHost && myReady) initGame();
+            if(isHost) initGame();
             break;
         case 'SYNC':
             gameState = data.payload;
-            if(gameState.started) { showGameBoardUI(); updateUI(); }
+            if(gameState.started) showGameBoardUI();
+            if(gameState.gameOver) showGameOver();
+            updateUI();
             break;
         case 'LOG':
             writeLog(data.payload.msg, data.payload.type);
             break;
         case 'ACTION':
-            if(isHost) {
+            if(isHost && !gameState.gameOver) {
                 if(data.payload.type === 'END_TURN') endTurn();
+                else if(data.payload.type === 'RESTART') initGame();
                 else executeAction(data.payload.type, data.payload.params);
                 sync();
             }
             break;
     }
-}
-
-function requestRuleMode(m) {
-    if(!isHost) return;
-    document.getElementById('mode-selection-modal').style.display = 'none';
-    send('RULE_SELECT', m);
-    handleData({type:'RULE_SELECT', payload: m});
-}
-
-function renderStyleSelection() {
-    const list = document.getElementById('style-list'); list.innerHTML = '';
-    STYLES_DEF.forEach(s => {
-        const div = document.createElement('div'); div.className = 'style-option';
-        div.innerHTML = `<input type="checkbox" class="style-check" value="${s.id}" data-sp="${s.sp}">
-                         <div style="margin-left:5px;"><b>${s.name}</b>(${s.sp}SP)<br>${s.desc}</div>`;
-        div.querySelector('input').onclick = (e) => {
-            let total = 0; document.querySelectorAll('.style-check:checked').forEach(ck => total += parseInt(ck.dataset.sp));
-            if(total > 4) { e.target.checked = false; total -= parseInt(e.target.dataset.sp); }
-            document.getElementById('remaining-sp').innerText = 4 - total;
-        };
-        list.appendChild(div);
-    });
-}
-
-function readyWithStyles() {
-    myStyles = Array.from(document.querySelectorAll('.style-check:checked')).map(c => c.value);
-    myReady = true;
-    send('READY_STYLES', { styles: myStyles });
-    document.getElementById('style-ready-btn').style.display = 'none';
-    document.getElementById('waiting-msg').style.display = 'block';
-    if(isHost && oppReady) initGame();
-}
-
-function initGame() {
-    gameState.started = true;
-    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: (myRole==='p1'?myStyles:oppStyles) };
-    gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: (myRole==='p2'?myStyles:oppStyles) };
-    for(let i=0; i<3; i++) { 
-        if(gameState.p1.deck.length>0) gameState.p1.hand.push(gameState.p1.deck.pop());
-        if(gameState.p2.deck.length>0) gameState.p2.hand.push(gameState.p2.deck.pop());
-    }
-    gameState.turn = 1;
-    showGameBoardUI();
-    logToBoth("GAME START!", "sys");
-    startTurn();
-}
-
-function showGameBoardUI() {
-    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    document.getElementById('game-board').style.display = 'flex';
-    document.getElementById('game-controls').style.display = 'flex';
-    document.getElementById('game-log').style.display = 'block';
 }
 
 function writeLog(msg, type) {
@@ -238,21 +166,61 @@ function writeLog(msg, type) {
     logDiv.insertBefore(entry, logDiv.firstChild);
 }
 
-function logToBoth(msg, type) { writeLog(msg, type); if(isHost) send('LOG', { msg, type }); }
+function logToBoth(msg, type) {
+    writeLog(msg, type);
+    if(isHost) send('LOG', { msg, type });
+}
+
 function sync() { if(isHost) send('SYNC', gameState); updateUI(); }
 function send(type, payload) { if(conn && conn.open) conn.send({type, payload}); }
 
+function initGame() {
+    gameState.started = true;
+    gameState.gameOver = false;
+    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0 };
+    gameState.p2 = { name:"Guest", deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0 };
+    for(let i=0; i<3; i++) { 
+        gameState.p1.hand.push(gameState.p1.deck.pop()); 
+        gameState.p2.hand.push(gameState.p2.deck.pop()); 
+    }
+    gameState.turn = 1;
+    logToBoth("--- GAME START ---", "sys");
+    startTurn();
+}
+
 function startTurn() {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    for(let i=0; i<2; i++) if(p.deck.length > 0) p.hand.push(p.deck.pop());
+    for(let i=0; i<2; i++) {
+        if(p.deck.length > 0) p.hand.push(p.deck.pop());
+        else { finishGame(p.name + " の山札切れにつき決着！"); return; }
+    }
     p.ap = Math.min(p.hand.length, 10);
     p.field.forEach(c => c.tapped = false);
-    logToBoth(`--- ${p.name} ターン開始 ---`, "sys");
+    logToBoth(`--- ${p.name} のターン (AP:${p.ap}) ---`, "sys");
     sync();
 }
 
+function finishGame(msg) {
+    gameState.gameOver = true;
+    logToBoth(msg, "err");
+    sync();
+}
+
+function showGameOver() {
+    document.getElementById('game-over-modal').style.display = 'flex';
+    document.getElementById('winner-text').innerText = "GAME OVER";
+}
+
+function showGameBoardUI() {
+    document.querySelectorAll('.modal').forEach(m => { if(m.id !== 'game-over-modal') m.style.display = 'none'; });
+    document.getElementById('game-board').style.display = 'flex';
+    document.getElementById('game-controls').style.display = 'flex';
+    document.getElementById('game-log').style.display = 'block';
+}
+
 function updateUI() {
-    if(!gameState.started || !gameState.p1) return;
+    if(!gameState.started) return;
+    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
 
@@ -268,16 +236,25 @@ function updateUI() {
     renderCards('opp-hand', opp.hand, true, 'opp', 'hand');
     renderCards('opp-field', opp.field, false, 'opp', 'field');
 
-    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
     document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
+
+    // 直接攻撃ボタン表示条件：自分のターンかつ攻撃モードかつカード選択中かつ敵フィールドが空
     document.getElementById('direct-btn').style.display = (isMyTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
 
-    ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW'].forEach(m => {
-        const btn = document.getElementById(`btn-${m}`);
-        if(currentMode === m || currentMode.startsWith('SPELL_')) btn.classList.add('active-mode');
-        else btn.classList.remove('active-mode');
+    // ボタンの状態制御
+    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
+    btns.forEach(id => {
+        const b = document.getElementById('btn-' + id);
+        b.disabled = !isMyTurn || gameState.gameOver;
+        if(currentMode === id) b.classList.add('active-mode'); else b.classList.remove('active-mode');
     });
+    // AP 0 での制限
+    if(me.ap <= 0) {
+        document.getElementById('btn-SUMMON').disabled = true;
+        document.getElementById('btn-SPELL').disabled = true;
+        document.getElementById('btn-ATTACK').disabled = true;
+    }
 }
 
 function renderCards(id, cards, isBack, owner, area) {
@@ -298,11 +275,21 @@ function renderCards(id, cards, isBack, owner, area) {
 }
 
 function handleCardClick(owner, area, idx) {
-    if(gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
+    if(gameState.gameOver || gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
 
-    if(currentMode === 'SUMMON' && owner === 'me' && area === 'hand') requestAction('SUMMON', {idx});
-    else if(currentMode === 'WITHDRAW' && owner === 'me' && area === 'field') requestAction('WITHDRAW', {idx});
+    if(currentMode === 'SUMMON' && owner === 'me' && area === 'hand') {
+        if(me.field.length >= 4) return logToBoth("フィールドが上限(4枚)です", "err");
+        if(me.ap < 1) return;
+        requestAction('SUMMON', {idx});
+        resetMode();
+    }
+    else if(currentMode === 'WITHDRAW' && owner === 'me' && area === 'field') {
+        const cost = me.field[idx].tapped ? 2 : 1;
+        if(me.ap < cost) return;
+        requestAction('WITHDRAW', {idx});
+        resetMode();
+    }
     else if(currentMode === 'ATTACK') {
         if(owner === 'me' && area === 'field') {
             if(me.field[idx].tapped) return;
@@ -310,14 +297,16 @@ function handleCardClick(owner, area, idx) {
             if(exist !== -1) selectedCards.splice(exist, 1);
             else selectedCards.push({idx, area:'field'});
         } else if(owner === 'opp' && area === 'field' && selectedCards.length > 0) {
+            if(me.ap < 1) return;
             requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx});
-            selectedCards = [];
+            resetMode();
         }
     }
     else if(currentMode === 'SPELL' && owner === 'me' && area === 'hand') {
+        if(me.ap < 1) return;
         spellMainIdx = idx;
         const card = me.hand[idx];
-        if(card.isJoker || card.rank === 1) requestAction('SPELL_MAIN', {idx, costIdxs: []});
+        if(card.isJoker || card.rank === 1) { requestAction('SPELL_MAIN', {idx, costIdxs: []}); resetMode(); }
         else currentMode = 'SPELL_COST';
     }
     else if(currentMode === 'SPELL_COST' && owner === 'me') {
@@ -329,17 +318,19 @@ function handleCardClick(owner, area, idx) {
         const totalCost = selectedCards.reduce((s, item) => s + me[item.area][item.idx].rank, 0);
         if(totalCost >= me.hand[spellMainIdx].rank - 1) {
             requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards});
-            selectedCards = []; spellMainIdx = null; currentMode = 'IDLE';
+            resetMode();
         }
     }
     else if(currentMode === 'SPELL_TARGET' && owner === 'opp' && area === 'field') {
         requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx});
-        currentMode = 'IDLE';
+        resetMode();
     }
     updateUI();
 }
 
-function requestAction(type, params) { if(isHost) { executeAction(type, params); sync(); } else { send('ACTION', {type, params}); } }
+function requestAction(type, params) {
+    if(isHost) { executeAction(type, params); sync(); } else { send('ACTION', {type, params}); }
+}
 
 function executeAction(type, params) {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
@@ -347,46 +338,62 @@ function executeAction(type, params) {
 
     if(type === 'SUMMON') {
         const c = p.hand.splice(params.idx, 1)[0];
-        p.field.push(c); p.ap--;
+        c.tapped = false; p.field.push(c); p.ap--;
         logToBoth(`${p.name}: ${getCardName(c)} を招集`, "usr");
     }
     else if(type === 'WITHDRAW') {
         const c = p.field.splice(params.idx, 1)[0];
         const cost = c.tapped ? 2 : 1;
-        p.deck.unshift(c); p.ap -= cost;
+        c.tapped = false; p.deck.unshift(c); p.ap -= cost;
         logToBoth(`${p.name}: ${getCardName(c)} を撤退`, "usr");
     }
     else if(type === 'COMBAT') {
         const attackers = params.atkIdxs.map(i => p.field[i]);
         const defender = opp.field[params.defIdx];
-        const sameColor = attackers[0].red === defender.red && !attackers[0].isJoker;
+        const sameColor = (attackers[0].red === defender.red && !attackers[0].isJoker);
         const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
         attackers.forEach(a => a.tapped = true); p.ap--;
         
-        logToBoth(`戦闘: ${attackers.map(a => getCardName(a)).join("+")}(パワー${atkPower}) VS ${getCardName(defender)} [${sameColor ? '同色' : '異色'}]`, "atk");
+        logToBoth(`戦闘: ${attackers.map(a => getCardName(a)).join("+")}(計${atkPower}) VS ${getCardName(defender)} [${sameColor ? '同色' : '異色'}]`, "atk");
+
         if(!sameColor || atkPower >= defender.rank) {
-            const d = opp.field.splice(params.defIdx, 1)[0]; opp.trash.push(d);
-            logToBoth(`${getCardName(d)} を破壊`, "atk");
-            if(sameColor) { if(opp.deck.length > 0) opp.hand.push(opp.deck.pop()); logToBoth(`${opp.name} に1ダメージ`, "atk"); }
+            const d = opp.field.splice(params.defIdx, 1)[0]; 
+            d.tapped = false; opp.trash.push(d);
+            logToBoth(`結果: ${getCardName(d)} を破壊！`, "atk");
+            if(sameColor) {
+                if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
+                else finishGame("山札切れにつき決着！");
+                logToBoth(`${opp.name} に1ダメージ`, "atk");
+            }
         } else {
-            logToBoth("返り討ち！", "atk");
-            params.atkIdxs.sort((a,b)=>b-a).forEach(i => p.trash.push(p.field.splice(i,1)[0]));
+            logToBoth(`結果: 返り討ち！`, "atk");
+            params.atkIdxs.sort((a,b)=>b-a).forEach(i => {
+                let c = p.field.splice(i,1)[0]; c.tapped = false; p.trash.push(c);
+            });
         }
     }
     else if(type === 'DIRECT') {
         params.idxs.forEach(i => p.field[i].tapped = true); p.ap--;
-        logToBoth(`${p.name}: 直接攻撃！ 2ダメージ`, "atk");
-        for(let i=0; i<2; i++) if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
+        logToBoth(`${p.name}: 直接攻撃！`, "atk");
+        for(let i=0; i<2; i++) {
+            if(opp.deck.length > 0) opp.hand.push(opp.deck.pop());
+            else finishGame("山札切れにつき決着！");
+        }
     }
     else if(type === 'SPELL_MAIN') {
         const main = p.hand[params.idx];
-        const costNames = params.costIdxs.map(item => getCardName(p[item.area][item.idx]));
         const costCards = [];
-        params.costIdxs.sort((a,b) => b.idx - a.idx).forEach(item => costCards.push(p[item.area].splice(item.idx, 1)[0]));
+        params.costIdxs.sort((a,b) => b.idx - a.idx).forEach(item => {
+            let c = p[item.area].splice(item.idx, 1)[0];
+            c.tapped = false; costCards.push(c);
+        });
         const finalMain = p.hand.splice(p.hand.indexOf(main), 1)[0];
-        p.trash.push(finalMain); costCards.forEach(c => p.trash.push(c)); p.ap--;
+        finalMain.tapped = false; p.trash.push(finalMain); 
+        costCards.forEach(c => p.trash.push(c));
+        p.ap--;
 
-        logToBoth(`${p.name}: スペル ${getCardName(finalMain)} 発動 (コスト: ${costNames.join(",") || "なし"})`, "spl");
+        logToBoth(`${p.name}: スペル ${getCardName(finalMain)} 発動 (コスト: ${costCards.map(c=>getCardName(c)).join(",") || "なし"})`, "spl");
+        
         if(finalMain.isJoker || finalMain.red) {
             if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) document.getElementById('red-spell-modal').style.display = 'flex';
         } else if(opp.field.length > 0) {
@@ -396,26 +403,31 @@ function executeAction(type, params) {
     else if(type === 'SPELL_RED_RESOLVE') {
         if(params.choice === 'DRAW') {
             if(p.deck.length > 0) p.hand.push(p.deck.pop());
+            else finishGame("山札切れにつき決着！");
             logToBoth(`${p.name}: 1枚ドローを選択`, "spl");
         } else {
-            logToBoth(`${p.name}: 墓地回収を選択`, "spl");
-            if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) showTrashModal(p.trash);
+            if(p.trash.length === 0) {
+                if(p.deck.length > 0) p.hand.push(p.deck.pop());
+                logToBoth(`${p.name}: 墓地が空のためドローに変更`, "spl");
+            } else if(myRole === (gameState.turn === 1 ? 'p1' : 'p2')) {
+                showTrashModal(p.trash);
+            }
         }
     }
     else if(type === 'SPELL_RECOVER_FINISH') {
         const recovered = p.trash.splice(params.trashIdx, 1)[0];
-        p.hand.push(recovered);
+        recovered.tapped = false; p.hand.push(recovered);
         logToBoth(`${p.name}: 墓地から ${getCardName(recovered)} を回収`, "spl");
     }
     else if(type === 'SPELL_BLACK_RESOLVE') {
         const d = opp.field.splice(params.targetIdx, 1)[0];
-        opp.trash.push(d);
+        d.tapped = false; opp.trash.push(d);
         logToBoth(`${p.name}: スペルで ${getCardName(d)} を破壊`, "spl");
     }
 }
 
+function resetMode() { currentMode = 'IDLE'; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = ""; }
 function resolveRedChoice(choice) { document.getElementById('red-spell-modal').style.display = 'none'; requestAction('SPELL_RED_RESOLVE', {choice}); }
-
 function showTrashModal(trash) {
     const display = document.getElementById('trash-display'); display.innerHTML = '';
     trash.forEach((c, i) => {
@@ -428,11 +440,27 @@ function showTrashModal(trash) {
     });
     document.getElementById('trash-modal').style.display = 'flex';
 }
-
-function setMode(m) { currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; spellMainIdx = null; document.getElementById('mode-text').innerText = "モード: " + currentMode; updateUI(); }
-function endTurn() { if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; selectedCards = []; }
-function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s => s.idx)}); selectedCards = []; currentMode = 'IDLE'; }
-function createDeck(suits) { let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(() => Math.random() - 0.5); }
+function setMode(m) { 
+    if(gameState.gameOver) return;
+    currentMode = (currentMode === m) ? 'IDLE' : m; 
+    selectedCards = []; spellMainIdx = null; 
+    document.getElementById('mode-text').innerText = "モード: " + currentMode;
+    updateUI(); 
+}
+function endTurn() { 
+    if(gameState.gameOver) return;
+    if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } 
+    else send('ACTION', {type:'END_TURN'}); 
+    resetMode(); updateUI();
+}
+function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s => s.idx)}); resetMode(); updateUI(); }
+function requestRestart() { if(confirm("ゲームを再起動しますか？")) { if(isHost) initGame(); else send('ACTION', {type:'RESTART'}); } }
+function requestRuleMode(m) { if(isHost) { send('RULE_SELECT', m); handleData({type:'RULE_SELECT', payload:m}); } }
+function createDeck(suits) { 
+    let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); });
+    d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false});
+    return d.sort(() => Math.random() - 0.5); 
+}
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':c.rank===11?'J':c.rank===12?'Q':c.rank===13?'K':c.rank}]`; }
 </script>
 </body>
