@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v2.5</title>
+    <title>THE DECKS Online v2.6</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -27,8 +27,7 @@
         button.active-mode { background: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
         .modal-content { background: #34495e; padding: 25px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; width: 90%; max-width: 500px; }
-        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; max-height: 300px; overflow-y: auto;}
-        .direct-attack-btn { background: #e74c3c; color: white; padding: 10px 20px; border-radius: 5px; border: 2px solid white; cursor: pointer; font-weight: bold; display: none; }
+        .direct-attack-btn { background: #e74c3c; color: white; padding: 8px 15px; border-radius: 5px; border: 2px solid white; cursor: pointer; font-weight: bold; display: none; margin: 5px auto; }
     </style>
 </head>
 <body>
@@ -61,20 +60,18 @@
 <div id="setup-modal" class="modal">
     <div class="modal-content">
         <h2>スタイル選択</h2>
-        <div class="style-grid" id="style-list"></div>
+        <div id="style-list"></div>
         <button id="style-ready-btn" class="primary" onclick="readyWithStyles()">準備完了</button>
         <p id="waiting-msg" style="display:none; color:#f1c40f;">相手の準備を待っています...</p>
     </div>
 </div>
 
-<div id="mode-text" style="color:#f1c40f; font-weight:bold; height: 20px;"></div>
-
 <div id="game-board">
     <div id="opp-area" class="player-area">
         <div class="stats">ENEMY | Deck: <span id="opp-deck">0</span> | AP: <span id="opp-ap">0</span></div>
-        <div id="opp-field" class="field">
-            <button id="direct-btn" class="direct-attack-btn" onclick="executeDirectAttack()">直接攻撃！</button>
-        </div>
+        <!-- ボタンをfieldの外側に移動 -->
+        <button id="direct-btn" class="direct-attack-btn" onclick="executeDirectAttack()">直接攻撃！</button>
+        <div id="opp-field" class="field"></div>
         <div id="opp-hand" class="hand"></div>
     </div>
     <div id="my-area" class="player-area">
@@ -96,7 +93,7 @@
 const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦', J: '★' };
 let peer, conn, isHost = false, myRole = null; 
 let gameState = { p1: null, p2: null, turn: 1, started: false };
-let myStyles = [], oppReady = false, myReady = false, currentMode = 'IDLE', selectedCards = [];
+let currentMode = 'IDLE', selectedCards = [];
 
 peer = new Peer();
 peer.on('open', id => { document.getElementById('my-id-display').innerText = "ID: " + id; document.getElementById('status').innerText = "準備完了"; });
@@ -122,7 +119,6 @@ function handleData(data) {
         if(gameState.ruleMode === 'style') { document.getElementById('setup-modal').style.display = 'flex'; }
         else if(isHost) initGame();
     }
-    if(data.type === 'READY_STYLES') { oppReady = true; if(isHost && myReady) initGame(); }
     if(data.type === 'SYNC') { 
         gameState = data.payload; 
         if(gameState.started) { showGameBoardUI(); updateUI(); }
@@ -140,7 +136,10 @@ function initGame() {
     gameState.started = true;
     gameState.p1 = { deck: createDeck(['S', 'H']), hand: [], field: [], ap: 0 };
     gameState.p2 = { deck: createDeck(['C', 'D']), hand: [], field: [], ap: 0 };
-    for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
+    for(let i=0; i<3; i++) { 
+        if(gameState.p1.deck.length > 0) gameState.p1.hand.push(gameState.p1.deck.pop()); 
+        if(gameState.p2.deck.length > 0) gameState.p2.hand.push(gameState.p2.deck.pop()); 
+    }
     gameState.turn = 1;
     startTurn();
 }
@@ -182,17 +181,24 @@ function updateUI() {
     const myTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     document.getElementById('my-area').className = 'player-area' + (myTurn ? ' active-area' : '');
     document.getElementById('opp-area').className = 'player-area' + (!myTurn ? ' active-area' : '');
-    document.getElementById('direct-btn').style.display = (currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
+
+    // 安全に直接攻撃ボタンを操作
+    const directBtn = document.getElementById('direct-btn');
+    if(directBtn) {
+        directBtn.style.display = (myTurn && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';
+    }
 }
 
 function renderCards(id, cards, isBack, owner, area) {
-    const container = document.getElementById(id); container.innerHTML = '';
+    const container = document.getElementById(id); 
+    if(!container) return;
+    container.innerHTML = ''; // ここで中身を空にしても direct-btn は外にあるので安全
     if(!cards) return;
     cards.forEach((c, i) => {
         const div = document.createElement('div');
         div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.tapped ? 'tapped' : ''}`;
         if(!isBack) {
-            if(owner === 'me' && selectedCards.includes(i)) div.classList.add('selected');
+            if(owner === 'me' && area === 'field' && selectedCards.includes(i)) div.classList.add('selected');
             let val = c.isJoker ? 'JOK' : (c.rank === 1 ? 'A' : (c.rank === 11 ? 'J' : (c.rank === 12 ? 'Q' : (c.rank === 13 ? 'K' : c.rank))));
             div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${val}</div>`;
         }
@@ -235,12 +241,18 @@ function executeAction(type, params) {
         const atkPower = attackers.reduce((s,c) => s + c.rank, 0);
         if(attackers[0].red !== defender.red || atkPower >= defender.rank) {
             opp.field.splice(params.defIdx, 1);
-            if(attackers[0].red === defender.red) for(let i=0; i<1; i++) if(opp.deck.length>0) opp.hand.push(opp.deck.pop());
+            if(attackers[0].red === defender.red) { if(opp.deck.length>0) opp.hand.push(opp.deck.pop()); }
         }
+    }
+    else if(type === 'DIRECT' && p.ap > 0) {
+        params.idxs.forEach(i => p.field[i].tapped = true);
+        p.ap--; 
+        for(let i=0; i<2; i++) if(opp.deck.length>0) opp.hand.push(opp.deck.pop());
     }
 }
 
-function endTurn() { if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; }
+function executeDirectAttack() { if(selectedCards.length > 0) { requestAction('DIRECT', {idxs: selectedCards}); selectedCards = []; currentMode = 'IDLE'; } }
+function endTurn() { if(isHost) { gameState.turn = (gameState.turn === 1 ? 2 : 1); startTurn(); } else send('ACTION', {type:'END_TURN'}); currentMode = 'IDLE'; selectedCards = []; }
 function setMode(m) { currentMode = (currentMode === m) ? 'IDLE' : m; selectedCards = []; updateUI(); }
 function createDeck(suits) { 
     let d = []; suits.forEach(s => { for(let r=1; r<=13; r++) d.push({suit:s, rank:r, red:(s==='H'||s==='D'), tapped:false}); });
