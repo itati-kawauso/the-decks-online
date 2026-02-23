@@ -199,7 +199,21 @@ function handleData(data) {
             break;
         case 'SYNC':
             gameState = data.payload;
-            if(gameState.started) transitionToGame();
+            if(gameState.started) {
+                transitionToGame();
+            } else {
+                // 再戦等でゲームが開始されていない状態
+                document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+                document.getElementById('mode-selection-modal').style.display = 'flex';
+                // 盤面表示も隠す
+                document.getElementById('game-board').style.display = 'none';
+                document.getElementById('game-controls').style.display = 'none';
+                
+                if(!isHost) {
+                    document.getElementById('mode-options').style.display = 'none';
+                    document.getElementById('guest-wait-msg').style.display = 'block';
+                }
+            }
             if(gameState.gameOver) showGameOver();
             updateUI();
             break;
@@ -308,8 +322,11 @@ function executeAction(type, params) {
         if(c.rank === 9 && p.styles.includes('punch9') && p.ap >= 1 && opp.field.length > 0) { if(myRole === (gameState.turn===1?'p1':'p2')) showBounceModal(opp.field); }
     }
     else if(type === 'WITHDRAW' && p.ap >= params.cost) {
-        let c = p.field.splice(params.idx, 1)[0]; c.tapped = false; p.deck.push(c); p.ap -= params.cost;
-        logToBoth(`${p.name}: ${getCardName(c)} 撤退`, "usr");
+        let c = p.field.splice(params.idx, 1)[0];
+        c.tapped = false;
+        p.deck.push(c);
+        p.ap -= params.cost; // リクエストされたコストを差し引く
+        logToBoth(`${p.name}: ${getCardName(c)} 撤退 (${params.cost}AP消費)`, "usr");
         if(c.rank === 1 && p.styles.includes('aceShot')) applyDamage(opp, 3);
     }
     else if(type === 'COMBAT') {
@@ -396,9 +413,37 @@ function handleCardClick(owner, area, idx) {
 
     if(owner === 'me') {
         if(currentMode === 'SUMMON' && area === 'hand') { const c = (opp.field.some(x=>x.rank===13) && opp.styles.includes('kingAura')) ? 2 : 1; if(me.field.length < 4 && me.ap >= c) { requestAction('SUMMON', {idx, cost: c}); resetMode(); } }
-        else if(currentMode === 'WITHDRAW' && area === 'field') { const c = me.field[idx].tapped ? 2 : 1; if(me.ap >= c) { requestAction('WITHDRAW', {idx, cost: c}); resetMode(); } }
+        else if(currentMode === 'WITHDRAW' && area === 'field') {
+            const cost = me.field[idx].tapped ? 2 : 1;
+            if(me.ap >= cost) {
+                requestAction('WITHDRAW', {idx, cost: cost});
+                resetMode();
+            } else {
+                logToBoth(`APが不足しています！(タップ状態の撤退は2AP必要です)`, "sys");
+            }
+        }
         else if(currentMode === 'ATTACK' && area === 'field') { if(!me.field[idx].tapped) { const ex = selectedCards.findIndex(s => s.idx === idx && s.area === 'field'); if(ex !== -1) selectedCards.splice(ex, 1); else selectedCards.push({idx, area:'field'}); updateUI(); } }
-        else if(currentMode === 'SPELL' && area === 'hand') { if(me.ap >= 1) { spellMainIdx = idx; const card = me.hand[idx]; if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []}); handleSpellFollowUp(card); } else { currentMode = 'SPELL_COST'; updateUI(); } } }
+        else if(currentMode === 'SPELL' && area === 'hand') {
+            if(me.ap >= 1) {
+                const card = me.hand[idx];
+                // 黒スペルの空打ちチェック
+                if (!card.isJoker && !card.red && opp.field.length === 0) {
+                    logToBoth("相手の場に兵士がいないため、黒スペルは発動できません。", "sys");
+                    resetMode();
+                    return;
+                }
+                
+                spellMainIdx = idx;
+                if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) {
+                    requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []});
+                    handleSpellFollowUp(card);
+                } else {
+                    currentMode = 'SPELL_COST';
+                    updateUI();
+                }
+            }
+        }
+
         else if(currentMode === 'SPELL_COST') { if(area === 'hand' && idx === spellMainIdx) return; const ex = selectedCards.findIndex(s => s.idx === idx && s.area === area); if(ex !== -1) selectedCards.splice(ex, 1); else selectedCards.push({idx, area}); const tot = selectedCards.reduce((s, it) => s + me[it.area][it.idx].rank, 0); if(tot >= me.hand[spellMainIdx].rank - 1) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards}); handleSpellFollowUp(me.hand[spellMainIdx]); } else updateUI(); }
     } else {
         // 相手エリアクリック時
@@ -557,27 +602,35 @@ function createDeck(s) { let d=[]; s.forEach(su=>{ for(let r=1; r<=13; r++) d.pu
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
 function requestAction(type, params) { if(isHost) { executeAction(type, params); if(!isSolo) sync(); } else send('ACTION', {type, params}); }
 function handleSpellFollowUp(card) {
+    if(card.isJoker) {
+        document.getElementById('joker-modal').style.display = 'flex';
+    } else if(card.red === true) { // 明示的に true を確認
+        document.getElementById('red-spell-modal').style.display = 'flex';
+    } else {
+        // 黒スペル（ここに来る時点で相手に兵士がいることは上記バリデーションで保証）
+        currentMode = 'SPELL_TARGET';
+        document.getElementById('mode-text').innerText = "破壊する相手兵士を選択してください";
+    }
+    updateUI();
+}
+function resolveJoker(choice) {
+    document.getElementById('joker-modal').style.display = 'none';
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
     
-    if(card.isJoker) {
-        document.getElementById('joker-modal').style.display='flex';
-    } else if(card.red) {
-        document.getElementById('red-spell-modal').style.display='flex';
+    if(choice === 'red') {
+        document.getElementById('red-spell-modal').style.display = 'flex';
     } else {
-        // 黒スペル：相手の場に兵士がいるかチェック
+        // 黒を選択
         if(opp.field.length > 0) {
             currentMode = 'SPELL_TARGET';
             document.getElementById('mode-text').innerText = "破壊する相手兵士を選択してください";
         } else {
-            // 対象がいない場合はスペル発動自体をキャンセル（APとカードを戻す処理は本来必要ですが、
-            // ルール上「空打ち」になる場合はトラッシュ送りにして終了とします）
-            logToBoth("対象となる相手兵士がいないため、スペルは空振りに終わりました。", "sys");
+            logToBoth("対象となる相手兵士がいないため、効果は発動しませんでした。", "sys");
             resetMode();
         }
     }
     updateUI();
 }
-function resolveJoker(c) { document.getElementById('joker-modal').style.display='none'; if(c==='red') document.getElementById('red-spell-modal').style.display='flex'; else { const opp=(myRole==='p1'?gameState.p2:gameState.p1); if(opp.field.length>0) currentMode='SPELL_TARGET'; else resetMode(); } updateUI(); }
 function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.display='none'; if(c==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.filter(x=>!x.isJoker).length === 0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
 function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
 function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
