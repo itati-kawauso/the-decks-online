@@ -71,7 +71,7 @@
         <h2>ルール設定</h2>
         <div id="mode-options" style="display: flex; gap: 10px; justify-content: center;">
             <button class="primary" onclick="requestRuleMode('basic')">基本ルールのみ</button>
-            <button class="primary" onclick="requestRuleMode('style')">スタイル採用型</button>
+            <button class="primary" onclick="requestRuleMode('style')">採用型ルールあり</button>
         </div>
         <p id="guest-wait-msg" style="display:none; color:#f1c40f; margin-top:20px; font-weight: bold;">Hostがルールを選択中です...</p>
     </div>
@@ -121,12 +121,12 @@
 </div>
 
 <div class="controls" id="game-controls">
-    <button id="btn-SUMMON" onclick="setMode('SUMMON')">招集</button>
-    <button id="btn-SPELL" onclick="setMode('SPELL')">スペル</button>
-    <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃</button>
-    <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退</button>
+    <button id="btn-SUMMON" onclick="setMode('SUMMON')">招集(1AP)</button>
+    <button id="btn-SPELL" onclick="setMode('SPELL')">スペル(1AP)</button>
+    <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃(1AP)</button>
+    <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退(1AP)</button>
     <button class="primary" id="btn-END" onclick="endTurn()">ターン終了</button>
-    <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルール</button>
+    <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルールPDF</button>
     <button style="background: #e74c3c; color: white;" onclick="requestRestart()">再起動</button>
 </div>
 <div id="game-log" class="log-container"></div>
