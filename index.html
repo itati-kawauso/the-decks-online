@@ -201,11 +201,10 @@ function handleData(data) {
             gameState = data.payload;
             if(gameState.started) {
                 transitionToGame();
-            } else {
-                // 再戦等でゲームが開始されていない状態
+            } else if (!gameState.ruleMode) {
+                // ルール未決定（初期状態や完全な再起動）の時のみリセットを行う
                 document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
                 document.getElementById('mode-selection-modal').style.display = 'flex';
-                // 盤面表示も隠す
                 document.getElementById('game-board').style.display = 'none';
                 document.getElementById('game-controls').style.display = 'none';
                 
@@ -272,10 +271,16 @@ function readyWithStyles() {
 }
 
 function checkHostStart() {
-    if(isHost && myReady && (isSolo || oppReady)) { initGame(); }
-    else { document.getElementById('style-ready-btn').style.display = 'none'; document.getElementById('waiting-msg').style.display = 'block'; }
+    if(isHost && myReady && (isSolo || oppReady)) { 
+        initGame(); 
+    } else {
+        // ホスト自身が準備完了ボタンを押した時のみ、待機メッセージを表示しボタンを隠す
+        if (myReady) {
+            document.getElementById('style-ready-btn').style.display = 'none';
+            document.getElementById('waiting-msg').style.display = 'block';
+        }
+    }
 }
-
 function initGame() {
     if(!isHost) return;
     gameState.started = true; gameState.gameOver = false; gameState.winner = null;
