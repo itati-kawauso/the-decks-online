@@ -389,10 +389,17 @@ function executeAction(type, params) {
     else if(type === 'SPELL_RED_RESOLVE') {
         const activeP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
         if(params.choice==='DRAW') { 
-            applyDamage(activeP, 1); 
+            // applyDamageを使わずにドロー処理を直接記述することでダメージ表記を回避
+            if(activeP.deck.length < 1) {
+                finishGame((activeP.name === (isHost ? gameState.p1.name : "Guest") ? "p2" : "p1"), activeP.name + " の山札切れ");
+                return;
+            }
+            activeP.hand.push(activeP.deck.pop());
             logToBoth("1枚ドロー!", "spl"); 
         } 
-        if(activeP.styles.includes('redHeal') && activeP.trash.length > 0) activeP.deck.push(activeP.trash.pop());
+        if(activeP.styles.includes('redHeal') && activeP.trash.length > 0) {
+            activeP.deck.push(activeP.trash.pop());
+        }
     }
     else if(type === 'SPELL_RECOVER_FINISH') {
         let r = p.trash.splice(params.trashIdx, 1)[0]; r.tapped=false; p.hand.push(r);
