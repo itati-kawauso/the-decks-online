@@ -390,7 +390,7 @@ function executeAction(type, params) {
         const activeP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
         if(params.choice==='DRAW') { 
             applyDamage(activeP, 1); 
-            logToBoth(`${activeP.name}: 効果で1ドローを選択`, "spl"); 
+            logToBoth("1枚ドロー!", "spl"); 
         } 
         if(activeP.styles.includes('redHeal') && activeP.trash.length > 0) activeP.deck.push(activeP.trash.pop());
     }
