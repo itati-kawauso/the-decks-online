@@ -45,6 +45,7 @@
         .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; }
         .style-option { background: rgba(0,0,0,0.3); padding: 6px; border-radius: 5px; display: flex; align-items: center; font-size: 10px; text-align: left;}
         .direct-attack-btn { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; cursor: pointer; display: none; margin: 5px auto; border: 2px solid white;}
+        button.active-mode { background: #f1c40f !important; color: #000 !important; box-shadow: 0 0 15px rgba(241, 196, 15, 0.6);transform: scale(1.05); }
     </style>
 </head>
 <body>
@@ -440,13 +441,21 @@ function updateUI() {
     document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
     // 直接攻撃ボタンの表示条件: APが1以上必要
     document.getElementById('direct-btn').style.display = (isMyTurn && me.ap >= 1 && currentMode === 'ATTACK' && selectedCards.length > 0 && opp.field.length === 0) ? 'block' : 'none';    
-    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW', 'END'];
-    btns.forEach(id => { 
-        const b = document.getElementById('btn-' + id); 
-        b.disabled = (!isMyTurn || gameState.gameOver); 
-        if(currentMode === id || (id==='SPELL' && currentMode.startsWith('SPELL_'))) b.classList.add('active-mode'); 
-        else b.classList.remove('active-mode'); 
+    const btns = ['SUMMON', 'SPELL', 'ATTACK', 'WITHDRAW'];
+    btns.forEach(id => {
+        const b = document.getElementById('btn-' + id);
+        b.disabled = (!isMyTurn || gameState.gameOver);
+        
+        // ハイライトの適用
+        if (currentMode === id || (id === 'SPELL' && currentMode.startsWith('SPELL_'))) {
+            b.classList.add('active-mode');
+        } else {
+            b.classList.remove('active-mode');
+        }
     });
+
+    // 終了ボタンはハイライト不要
+    document.getElementById('btn-END').disabled = (!isMyTurn || gameState.gameOver);
 }
 function applyDamage(t, a) {
     logToBoth(`${t.name}: ${a}ダメージ！(山札から${a}枚引く)`, "atk");
@@ -478,18 +487,23 @@ function showGameOver() {
     }
 }
 function requestRestart() {
-    if(confirm("再戦を開始しますか？")) {
+    if(confirm("ルームを維持したまま再戦しますか？")) {
         if(isHost) {
-            // 状態の完全リセット
             gameState.started = false;
             gameState.gameOver = false;
+            gameState.winner = null;
             gameState.p1 = null;
             gameState.p2 = null;
+            gameState.turn = 1;
+            
             resetLocalStates();
-            // 全モーダルを閉じてルール選択へ
+            
+            // UIのリセット
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
             document.getElementById('mode-selection-modal').style.display = 'flex';
+            
             if(!isSolo) sync();
+            updateUI();
         } else {
             send('ACTION', {type:'RESTART'});
         }
@@ -502,7 +516,37 @@ function send(t, p) { if(conn && conn.open) conn.send({type:t, payload:p}); }
 function writeLog(m, t) { const l=document.getElementById('game-log'); const e=document.createElement('div'); e.className=`log-entry log-${t}`; e.innerText=`[${new Date().toLocaleTimeString()}] ${m}`; l.insertBefore(e, l.firstChild); }
 function logToBoth(m, t) { writeLog(m, t); if(isHost && !isSolo) send('LOG', {msg:m, type:t}); }
 function resetMode() { currentMode='IDLE'; selectedCards=[]; spellMainIdx=null; document.getElementById('mode-text').innerText=""; updateUI(); }
-function setMode(m) { if(gameState.gameOver) return; currentMode=(currentMode===m)?'IDLE':m; selectedCards=[]; spellMainIdx=null; document.getElementById('mode-text').innerText="モード: "+currentMode; updateUI(); }
+function setMode(m) {
+    if(gameState.gameOver) return;
+    const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+
+    // モード解除の場合はそのまま通す
+    if (currentMode === m) {
+        resetMode();
+        return;
+    }
+
+    // 各行動に必要な最低APの算出
+    let requiredAP = 1;
+    if (m === 'SUMMON') {
+        if (opp.field.some(x => x.rank === 13) && opp.styles.includes('kingAura')) requiredAP = 2;
+    } else if (m === 'ATTACK') {
+        // アサシンジャック所持時は0APで開始できる可能性があるため0とする（実行時に詳細チェック）
+        requiredAP = me.styles.includes('assassinJ') ? 0 : 1;
+    }
+
+    if (me.ap < requiredAP) {
+        logToBoth("APが不足しています！", "sys");
+        return;
+    }
+
+    currentMode = m;
+    selectedCards = [];
+    spellMainIdx = null;
+    document.getElementById('mode-text').innerText = "モード: " + m;
+    updateUI();
+}
 function endTurn() { if(gameState.gameOver) return; if(isHost) { gameState.turn=(gameState.turn===1?2:1); startTurn(); } else send('ACTION', {type:'END_TURN'}); resetMode(); }
 
 function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s=>s.idx)}); resetMode(); }
@@ -513,18 +557,21 @@ function createDeck(s) { let d=[]; s.forEach(su=>{ for(let r=1; r<=13; r++) d.pu
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
 function requestAction(type, params) { if(isHost) { executeAction(type, params); if(!isSolo) sync(); } else send('ACTION', {type, params}); }
 function handleSpellFollowUp(card) {
+    const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+    
     if(card.isJoker) {
         document.getElementById('joker-modal').style.display='flex';
     } else if(card.red) {
         document.getElementById('red-spell-modal').style.display='flex';
     } else {
-        // 黒スペル
-        const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+        // 黒スペル：相手の場に兵士がいるかチェック
         if(opp.field.length > 0) {
             currentMode = 'SPELL_TARGET';
             document.getElementById('mode-text').innerText = "破壊する相手兵士を選択してください";
         } else {
-            logToBoth("対象となる相手兵士がいないため効果なし", "sys");
+            // 対象がいない場合はスペル発動自体をキャンセル（APとカードを戻す処理は本来必要ですが、
+            // ルール上「空打ち」になる場合はトラッシュ送りにして終了とします）
+            logToBoth("対象となる相手兵士がいないため、スペルは空振りに終わりました。", "sys");
             resetMode();
         }
     }
