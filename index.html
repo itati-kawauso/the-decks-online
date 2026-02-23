@@ -300,6 +300,7 @@ function getRankText(rank) {
 function executeAction(type, params) {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
+
     if(type === 'SUMMON' && p.ap >= params.cost) {
         let c = p.hand.splice(params.idx, 1)[0]; c.tapped = false; p.field.push(c); p.ap -= params.cost;
         logToBoth(`${p.name}: ${getCardName(c)} 招集`, "usr");
@@ -328,35 +329,20 @@ function executeAction(type, params) {
         }
     }
     else if(type === 'DIRECT') { params.idxs.forEach(i=>p.field[i].tapped=true); p.ap--; logToBoth(`${p.name}: 直接攻撃`, "atk"); applyDamage(opp, 2); }
-else if(type === 'SPELL_MAIN') {
-    // 1. コストとメインカードを特定
-    let mainCard = p.hand[params.idx];
-    
-    // 2. 削除するインデックスを収集して降順ソート（インデックスずれ防止）
-    let removeIndices = params.costIdxs
-        .filter(it => it.area === 'hand')
-        .map(it => it.idx);
-    removeIndices.push(params.idx);
-    removeIndices.sort((a, b) => b - a);
-    
-    // 3. 手札から削除
-    removeIndices.forEach(idx => {
-        let c = p.hand.splice(idx, 1)[0];
-        c.tapped = false;
-        p.trash.push(c);
-    });
-
-    // 4. 場からのコスト支払い
-    params.costIdxs.filter(it => it.area === 'field').sort((a,b)=>b.idx-a.idx).forEach(it => {
-        let c = p.field.splice(it.idx, 1)[0];
-        c.tapped = false;
-        p.trash.push(c);
-    });
-
-    p.ap--;
-    logToBoth(`${p.name}: スペル ${getCardName(mainCard)} 発動`, "spl");
-    if(mainCard.rank===12 && p.styles.includes('queenOrder')) applyDamage(opp, 2);
-}
+    else if(type === 'SPELL_MAIN') {
+        let mainCard = p.hand[params.idx];
+        let removeIndices = params.costIdxs.filter(it => it.area === 'hand').map(it => it.idx);
+        removeIndices.push(params.idx);
+        removeIndices.sort((a, b) => b - a);
+        removeIndices.forEach(idx => {
+            let c = p.hand.splice(idx, 1)[0]; c.tapped = false; p.trash.push(c);
+        });
+        params.costIdxs.filter(it => it.area === 'field').sort((a,b)=>b.idx-a.idx).forEach(it => {
+            let c = p.field.splice(it.idx, 1)[0]; c.tapped = false; p.trash.push(c);
+        });
+        p.ap--;
+        logToBoth(`${p.name}: スペル ${getCardName(mainCard)} 発動`, "spl");
+        if(mainCard.rank===12 && p.styles.includes('queenOrder')) applyDamage(opp, 2);
     }
     else if(type === 'SPELL_RED_RESOLVE') {
         if(params.choice==='DRAW') { applyDamage(p, 1); logToBoth(`${p.name}: ドローを選択`, "spl"); } 
@@ -373,13 +359,14 @@ else if(type === 'SPELL_MAIN') {
         if(p.styles.includes('blackCurse')) applyDamage(opp, 1);
     }
     else if(type === 'BOUNCE') { let d = opp.field.splice(params.idx, 1)[0]; d.tapped=false; opp.hand.push(d); p.ap--; logToBoth(`${p.name}: バウンス`, "spl"); }
+    
     if(isSolo) updateUI();
 }
-
 function handleCardClick(owner, area, idx) {
     if(gameState.gameOver || gameState.turn !== (myRole === 'p1' ? 1 : 2)) return;
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
+
     if(owner === 'me') {
         if(currentMode === 'SUMMON' && area === 'hand') { const c = (opp.field.some(x=>x.rank===13) && opp.styles.includes('kingAura')) ? 2 : 1; if(me.field.length < 4 && me.ap >= c) { requestAction('SUMMON', {idx, cost: c}); resetMode(); } }
         else if(currentMode === 'WITHDRAW' && area === 'field') { const c = me.field[idx].tapped ? 2 : 1; if(me.ap >= c) { requestAction('WITHDRAW', {idx, cost: c}); resetMode(); } }
@@ -387,32 +374,32 @@ function handleCardClick(owner, area, idx) {
         else if(currentMode === 'SPELL' && area === 'hand') { if(me.ap >= 1) { spellMainIdx = idx; const card = me.hand[idx]; if(card.isJoker || card.rank === 1 || (card.rank === 8 && me.styles.includes('noCost8'))) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: []}); handleSpellFollowUp(card); } else { currentMode = 'SPELL_COST'; updateUI(); } } }
         else if(currentMode === 'SPELL_COST') { if(area === 'hand' && idx === spellMainIdx) return; const ex = selectedCards.findIndex(s => s.idx === idx && s.area === area); if(ex !== -1) selectedCards.splice(ex, 1); else selectedCards.push({idx, area}); const tot = selectedCards.reduce((s, it) => s + me[it.area][it.idx].rank, 0); if(tot >= me.hand[spellMainIdx].rank - 1) { requestAction('SPELL_MAIN', {idx: spellMainIdx, costIdxs: selectedCards}); handleSpellFollowUp(me.hand[spellMainIdx]); } else updateUI(); }
     } else {
+        // 相手エリアクリック時
         if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) {
             if(opp.field.some(x=>x.rank===4 && opp.styles.includes('shield4')) && opp.field[idx].rank !== 4) return;
+            
+            // 協力戦のチェック
+            if (selectedCards.length > 1) {
+                const cards = selectedCards.map(s => me.field[s.idx]);
+                const firstColor = cards[0].red;
+                const allSameColor = cards.every(c => c.red === firstColor && !c.isJoker);
+                if (!allSameColor) {
+                    alert("協力戦は同色の兵士のみ可能です（Jokerは協力不可）");
+                    resetMode();
+                    return;
+                }
+            }
+            
             let apCost = (selectedCards.every(s=>me.field[s.idx].rank===11) && me.styles.includes('assassinJ')) ? 0 : 1;
             if(selectedCards.length > 1 && opp.field.some(x=>x.rank===10) && opp.styles.includes('heavy10')) apCost++;
             if(me.ap >= apCost) { requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx, apCost}); resetMode(); }
         }
-        else if(currentMode === 'SPELL_TARGET' && area === 'field') { requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx}); resetMode(); }
-    }
-    else if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) {
-    if(opp.field.some(x=>x.rank===4 && opp.styles.includes('shield4')) && opp.field[idx].rank !== 4) return;
-    
-    // 協力戦のチェック
-    if (selectedCards.length > 1) {
-        const cards = selectedCards.map(s => me.field[s.idx]);
-        const firstColor = cards[0].red;
-        const allSameColor = cards.every(c => c.red === firstColor && !c.isJoker);
-        if (!allSameColor) {
-            alert("協力戦は同色の兵士のみ可能です（Jokerは協力不可）");
+        else if(currentMode === 'SPELL_TARGET' && area === 'field') {
+            requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx});
             resetMode();
-            return;
         }
     }
-    
-    let apCost = (selectedCards.every(s=>me.field[s.idx].rank===11) && me.styles.includes('assassinJ')) ? 0 : 1;
 }
-
 function updateUI() {
     if(!gameState.started || !gameState.p1) return;
     const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
