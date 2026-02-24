@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v14.0</title>
+    <title>THE DECKS Online v1.0</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -38,6 +38,9 @@
         .log-ai { color: #ff9f43; }
         button { padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; background: #ecf0f1; transition: background 0.2s; }
         button:hover { background: #bdc3c7; }
+        /* Undoボタン用のスタイル */
+        button.undo-btn { background: #95a5a6; color: white; }
+        button.undo-btn:hover { background: #7f8c8d; }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         button.primary { background: #f1c40f; color: #000; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 500; flex-direction: column; align-items: center; justify-content: center; }
@@ -65,6 +68,8 @@
             <input id="join-id" placeholder="HostのIDを入力" style="padding: 8px; width: 60%;">
             <button onclick="joinGame()">参加</button>
         </div>
+        <hr style="width: 100%; border: 0; border-top: 1px solid #444;">
+        <button style="background: #3498db; color: white; padding: 10px;" onclick="openRuleBook()">📖 ルールPDFを確認する</button>
     </div>
 </div>
 
@@ -126,9 +131,10 @@
     <button id="btn-SUMMON" onclick="setMode('SUMMON')">招集(1AP)</button>
     <button id="btn-SPELL" onclick="setMode('SPELL')">スペル(1AP)</button>
     <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃(1AP)</button>
-    <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退(1AP)</button>
+    <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退(1~2AP)</button>
+    <button id="btn-UNDO" class="undo-btn" onclick="requestUndo()">戻る(<span id="undo-count">3</span>)</button>
     <button class="primary" id="btn-END" onclick="endTurn()">ターン終了</button>
-    <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルールPDF</button>
+    <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルールブック</button>
     <button style="background: #e74c3c; color: white;" onclick="requestRestart()">再起動</button>
 </div>
 <div id="game-log" class="log-container"></div>
@@ -155,7 +161,7 @@ const STYLES_DEF = [
 ];
 
 let peer, conn, isHost = false, isSolo = false, myRole = null; 
-let gameState = { p1: null, p2: null, turn: 1, started: false, gameOver: false, ruleMode: null, winner: null };
+let gameState = { p1: null, p2: null, turn: 1, started: false, gameOver: false, ruleMode: null, winner: null, history: [] };
 let myStyles = [], oppStyles = [], myReady = false, oppReady = false;
 let currentMode = 'IDLE', selectedCards = [], spellMainIdx = null;
 
@@ -284,10 +290,64 @@ function checkHostStart() {
 function initGame() {
     if(!isHost) return;
     gameState.started = true; gameState.gameOver = false; gameState.winner = null;
-    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles };
-    gameState.p2 = { name:(isSolo?"Guest (AI)":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles };
+    gameState.history = []; // 履歴リセット
+    gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles, undoLeft: 3 };
+    gameState.p2 = { name:(isSolo?"Bot":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles, undoLeft: 3 };
     for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
     gameState.turn = 1; transitionToGame(); logToBoth("--- GAME START ---", "sys"); startTurn();
+}
+
+function saveHistory() {
+    // 現在の状態をディープコピーしてスタックに保存（最大10手分程度）
+    gameState.history.push(JSON.stringify({p1: gameState.p1, p2: gameState.p2, turn: gameState.turn}));
+    if (gameState.history.length > 10) gameState.history.shift();
+}
+
+function requestUndo() {
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    if (p.undoLeft <= 0 || gameState.history.length === 0) {
+        logToBoth("戻ることはできません（回数不足または履歴なし）", "sys");
+        return;
+    }
+    if (isHost) {
+        executeUndo();
+        if (!isSolo) sync();
+    } else {
+        send('ACTION', {type: 'UNDO'});
+    }
+}
+
+function executeUndo() {
+    if (gameState.history.length === 0) return;
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    const prevState = JSON.parse(gameState.history.pop());
+    
+    // ターンが変わっていないことの確認（他人のターンは戻せない）
+    if (prevState.turn !== gameState.turn) {
+        logToBoth("前のターンの行動は戻せません", "sys");
+        return;
+    }
+
+    gameState.p1 = prevState.p1;
+    gameState.p2 = prevState.p2;
+    // Undo回数は復元せず、減らした状態を維持する
+    const currentP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    currentP.undoLeft--;
+    
+    logToBoth(`${currentP.name}: 行動を一つ戻しました (残り:${currentP.undoLeft}回)`, "sys");
+    resetMode();
+    updateUI();
+}
+
+// requestAction の冒頭で保存を行う
+function requestAction(type, params) {
+    if(isHost) {
+        saveHistory(); // アクション実行前に保存
+        executeAction(type, params);
+        if(!isSolo) sync();
+    } else {
+        send('ACTION', {type, params});
+    }
 }
 
 function startTurn() {
@@ -522,6 +582,12 @@ function updateUI() {
     renderCards('my-hand', me.hand, false, 'me', 'hand', me); renderCards('my-field', me.field, false, 'me', 'field', me);
     renderCards('opp-hand', opp.hand, (!isSolo), 'opp', 'hand', opp); renderCards('opp-field', opp.field, false, 'opp', 'field', opp);
     renderStyleChips('my-styles-display', me.styles); renderStyleChips('opp-styles-display', opp.styles);
+        // Undo回数の表示
+    document.getElementById('undo-count').innerText = me.undoLeft;
+    document.getElementById('btn-UNDO').disabled = (!isMyTurn || me.undoLeft <= 0 || gameState.history.length === 0);
+    // AI戦でも相手の手札は常に隠す (isBack を常に true に)
+    renderCards('opp-hand', opp.hand, true, 'opp', 'hand', opp); 
+
     document.getElementById('my-area').className = 'player-area' + (isMyTurn ? ' active-area' : '');
     document.getElementById('opp-area').className = 'player-area' + (!isMyTurn ? ' active-area' : '');
     // 直接攻撃ボタンの表示条件: APが1以上必要
@@ -675,7 +741,72 @@ function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.
 function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
 function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
 
-async function runAiTurn() { if(!isSolo || gameState.turn!==2 || gameState.gameOver) return; const ai=gameState.p2; const human=gameState.p1; const wait=(ms)=>new Promise(res=>setTimeout(res, ms)); logToBoth("AIが思考中...", "ai"); await wait(1000); let spells=ai.hand.filter(c=>!c.red && !c.isJoker); if(spells.length>0 && ai.ap>0 && human.field.length>0){ let spell=spells[0]; let costIdx=ai.hand.findIndex(c=>c!==spell); if(costIdx!==-1 && ai.hand[costIdx].rank>=spell.rank-1){ executeAction('SPELL_MAIN', {idx:ai.hand.indexOf(spell), costIdxs:[{area:'hand', idx:costIdx}]}); executeAction('SPELL_BLACK_RESOLVE', {targetIdx:0}); await wait(800); } } while(ai.ap>0 && ai.field.length<4 && ai.hand.length>0){ executeAction('SUMMON', {idx:0, cost:1}); await wait(600); } let strikers=ai.field.filter(c=>!c.tapped); for(let striker of strikers){ if(ai.ap<=0 || gameState.gameOver) break; let sIdx=ai.field.indexOf(striker); if(human.field.length===0) executeAction('DIRECT', {idxs:[sIdx]}); else executeAction('COMBAT', {atkIdxs:[sIdx], defIdx:0, apCost:1}); await wait(800); } await wait(500); endTurn(); if(!isSolo) sync(); }
+async function runAiTurn() {
+    if(!isSolo || gameState.turn!==2 || gameState.gameOver) return;
+    const ai=gameState.p2; const human=gameState.p1;
+    const wait=(ms)=>new Promise(res=>setTimeout(res, ms));
+    logToBoth("AIが戦略を練っています...", "ai");
+    await wait(1000);
+
+    // 1. スペル使用：黒スペルがあれば、相手の場の中で最もランクが高い（または邪魔な）カードを破壊
+    let blackSpells = ai.hand.filter(c => !c.red && !c.isJoker);
+    if (blackSpells.length > 0 && ai.ap > 0 && human.field.length > 0) {
+        let spell = blackSpells[0];
+        // コスト計算（もっとも低いランクのカードをコストにする）
+        let sortedHand = [...ai.hand].sort((a,b) => a.rank - b.rank);
+        let costCard = sortedHand.find(c => c !== spell);
+        if (costCard && costCard.rank >= spell.rank - 1) {
+            saveHistory();
+            executeAction('SPELL_MAIN', {idx: ai.hand.indexOf(spell), costIdxs: [{area:'hand', idx: ai.hand.indexOf(costCard)}]});
+            // 相手の最も強いカードを狙う
+            let targetIdx = 0;
+            let maxRank = -1;
+            human.field.forEach((c, idx) => {
+                let r = getEffectiveRank(c, human);
+                if (r > maxRank) { maxRank = r; targetIdx = idx; }
+            });
+            executeAction('SPELL_BLACK_RESOLVE', {targetIdx: targetIdx});
+            await wait(800);
+        }
+    }
+
+    // 2. 招集：最大まで展開
+    while(ai.ap > 0 && ai.field.length < 4 && ai.hand.length > 0) {
+        saveHistory();
+        executeAction('SUMMON', {idx: 0, cost: 1});
+        await wait(600);
+    }
+
+    // 3. 攻撃フェイズ：ダメージ効率の高い順に実行
+    let attackers = ai.field.filter(c => !c.tapped);
+    for (let striker of attackers) {
+        if (ai.ap <= 0 || gameState.gameOver) break;
+        let sIdx = ai.field.indexOf(striker);
+        
+        if (human.field.length === 0) {
+            // 直接攻撃（2ダメ）
+            saveHistory();
+            executeAction('DIRECT', {idxs: [sIdx]});
+        } else {
+            // 戦闘：同色で勝てる、または同色で相打ち（1ダメ）を優先
+            let targetIdx = -1;
+            // 同色で勝てる相手を探す
+            targetIdx = human.field.findIndex(h => h.red === striker.red && getEffectiveRank(striker, ai) >= getEffectiveRank(h, human));
+            
+            // 同色がなければ、単に一番弱いカードを叩く
+            if (targetIdx === -1) {
+                targetIdx = 0; // とりあえず先頭
+            }
+
+            saveHistory();
+            executeAction('COMBAT', {atkIdxs: [sIdx], defIdx: targetIdx, apCost: 1});
+        }
+        await wait(800);
+    }
+
+    await wait(500);
+    endTurn();
+}
 function getEffectiveRank(c, p) { if(!c) return 0; if(c.isJoker) return 14; let r = c.rank; if(r===5 && p.styles.includes('bond5') && p.field.filter(x=>x.rank===5).length >= 2) r=10; if(p.styles.includes('suitSync') && p.field.length === 4 && p.field.every(x=>x.suit===p.field[0].suit)) r+=2; return r; }
 function renderCards(id, cards, isBack, owner, area, pObj) { const container = document.getElementById(id); container.innerHTML = ''; if(!cards) return; cards.forEach((c, i) => { const div = document.createElement('div'); div.className = isBack ? 'card back' : `card ${c.red ? 'red' : ''} ${c.isJoker ? 'colorless' : ''} ${c.tapped ? 'tapped' : ''}`; if(!isBack) { if(owner === 'me' && area === 'hand' && i === spellMainIdx) div.classList.add('spell-main'); if(owner === 'me' && selectedCards.some(s => s.idx === i && s.area === area)) div.classList.add('selected'); if(owner === 'opp' && area === 'field' && (currentMode === 'ATTACK' || currentMode === 'SPELL_TARGET')) div.classList.add('can-target'); let rank = getEffectiveRank(c, pObj); div.innerHTML = `<div class="suit">${SUITS[c.suit]}</div><div>${getRankText(c.rank)}</div>`; } div.onclick = () => handleCardClick(owner, area, i); container.appendChild(div); }); }
 </script>
