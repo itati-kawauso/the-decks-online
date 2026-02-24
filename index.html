@@ -703,7 +703,9 @@ function endTurn() { if(gameState.gameOver) return; if(isHost) { gameState.turn=
 function executeDirectAttack() { requestAction('DIRECT', {idxs: selectedCards.map(s=>s.idx)}); resetMode(); }
 
 function renderStyleChips(id, styles) { const c=document.getElementById(id); c.innerHTML=''; styles.forEach(sid=>{ const s=STYLES_DEF.find(x => x.id === sid); if(s){ const ch=document.createElement('div'); ch.className='style-chip'; ch.innerText=s.name; ch.title=s.desc; c.appendChild(ch); } }); }
-function openRuleBook() { window.open("https://github.com/itati-kawauso/the-decks-online/blob/main/%F0%9F%83%8F%20%E3%83%88%E3%83%A9%E3%83%B3%E3%83%97%E5%AF%BE%E6%88%A6%E3%82%AB%E3%83%BC%E3%83%89%E3%82%B2%E3%83%BC%E3%83%A0%EF%BC%9A%E3%80%8ETHE%20DECKS%E3%80%8F%E5%AE%8C%E5%85%A8%E7%89%88%E3%83%AB%E3%83%BC%E3%83%AB%E3%83%96%E3%83%83%E3%82%AF.pdf", "_blank"); }
+function openRuleBook() { 
+    window.open("https://github.com/itati-kawauso/the-decks-online/blob/main/%F0%9F%83%8F%20%E3%83%88%E3%83%A9%E3%83%B3%E3%83%97%E5%AF%BE%E6%88%A6%E3%82%AB%E3%83%BC%E3%83%89%E3%82%B2%E3%83%BC%E3%83%A0%EF%BC%9A%E3%80%8ETHE%20DECKS%E3%80%8F%E3%83%AB%E3%83%BC%E3%83%AB%E3%83%96%E3%83%83%E3%82%AFver1.0.pdf", "_blank"); 
+}
 function createDeck(s) { let d=[]; s.forEach(su=>{ for(let r=1; r<=13; r++) d.push({suit:su, rank:r, red:(su==='H'||su==='D'), tapped:false}); }); d.push({suit:'J', rank:14, isJoker:true, red:null, tapped:false}); return d.sort(()=>Math.random()-0.5); }
 function getCardName(c) { if(!c) return ""; if(c.isJoker) return "[JOK]"; return `[${SUITS[c.suit]}${c.rank===1?'A':(c.rank===11?'J':(c.rank===12?'Q':(c.rank===13?'K':c.rank)))}]`; }
 function requestAction(type, params) { if(isHost) { executeAction(type, params); if(!isSolo) sync(); } else send('ACTION', {type, params}); }
