@@ -204,14 +204,24 @@ peer.on('connection', c => { conn = c; isHost = true; isSolo = false; myRole = '
 function copyMyID() { const id = peer.id; if (id) { navigator.clipboard.writeText(id).then(() => alert("IDをコピーしました")); } }
 
 function startSoloMode() {
+    startBgmAutomatically(); // これを追加
     isSolo = true; isHost = true; myRole = 'p1';
     resetLocalStates(); resetUIVisibility();
     document.getElementById('connection-panel').style.display = 'none';
     document.getElementById('mode-selection-modal').style.display = 'flex';
 }
 
-function hostGame() { isSolo = false; document.getElementById('status').innerText = "接続待機中..."; }
-function joinGame() { const id = document.getElementById('join-id').value; if(id) { conn = peer.connect(id); isSolo = false; isHost = false; myRole = 'p2'; setupConn(); } }
+function hostGame() { 
+    startBgmAutomatically(); // これを追加
+    isSolo = false; 
+    document.getElementById('status').innerText = "接続待機中..."; 
+}
+
+function joinGame() { 
+    startBgmAutomatically(); // これを追加
+    const id = document.getElementById('join-id').value; 
+    if(id) { conn = peer.connect(id); isSolo = false; isHost = false; myRole = 'p2'; setupConn(); } 
+}
 
 function setupConn() {
     conn.on('open', () => {
