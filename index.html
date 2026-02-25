@@ -53,6 +53,11 @@
 </head>
 <body>
 
+<div id="audio-controls" style="position: fixed; top: 10px; right: 10px; z-index: 1000; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px;">
+    <button onclick="toggleBGM()" id="bgm-toggle-btn" style="font-size: 12px; padding: 5px;">🎵 BGM: OFF</button>
+    <input type="range" id="bgm-volume" min="0" max="1" step="0.1" value="0.3" onchange="changeVolume(this.value)" style="vertical-align: middle; width: 60px;">
+</div>
+
 <h1>THE DECKS Online</h1>
 
 <div id="connection-panel">
@@ -159,6 +164,33 @@ const STYLES_DEF = [
     {id:"blackCurse", name:"黒の呪い", sp:3, desc:"黒スペル破壊時1ダメ"},
     {id:"redHeal", name:"赤の癒し", sp:3, desc:"赤スペル時山札回復"}
 ];
+// --- BGM設定 ---
+const bgm = new Audio('BGM.mp3'); // 同じ階層にbgm.mp3がある場合
+bgm.loop = true;                 // ループ再生
+bgm.volume = 0.3;                // 初期音量
+let isBgmPlaying = false;
+
+function toggleBGM() {
+    if (isBgmPlaying) {
+        bgm.pause();
+        document.getElementById('bgm-toggle-btn').innerText = "🎵 BGM: OFF";
+    } else {
+        bgm.play().catch(e => console.log("再生に失敗しました（ユーザー操作が必要です）"));
+        document.getElementById('bgm-toggle-btn').innerText = "🎵 BGM: ON";
+    }
+    isBgmPlaying = !isBgmPlaying;
+}
+
+function changeVolume(val) {
+    bgm.volume = val;
+}
+
+// ユーザーがボタンを押した時に自動で再生開始する関数
+function startBgmAutomatically() {
+    if (!isBgmPlaying) {
+        toggleBGM();
+    }
+}
 
 let peer, conn, isHost = false, isSolo = false, myRole = null; 
 let gameState = { p1: null, p2: null, turn: 1, started: false, gameOver: false, ruleMode: null, winner: null, history: [] };
