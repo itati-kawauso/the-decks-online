@@ -132,7 +132,7 @@
     <button id="btn-SPELL" onclick="setMode('SPELL')">スペル(1AP)</button>
     <button id="btn-ATTACK" onclick="setMode('ATTACK')">攻撃(1AP)</button>
     <button id="btn-WITHDRAW" onclick="setMode('WITHDRAW')">撤退(1~2AP)</button>
-    <button id="btn-UNDO" class="undo-btn" onclick="requestUndo()">戻る(<span id="undo-count">3</span>)</button>
+    <button id="btn-UNDO" class="undo-btn" onclick="requestUndo()">1手戻る(<span id="undo-count">3</span>)</button>
     <button class="primary" id="btn-END" onclick="endTurn()">ターン終了</button>
     <button style="background: #3498db; color: white;" onclick="openRuleBook()">ルールブック</button>
     <button style="background: #e74c3c; color: white;" onclick="requestRestart()">再起動</button>
@@ -207,16 +207,19 @@ function handleData(data) {
             gameState = data.payload;
             if(gameState.started) {
                 transitionToGame();
-            } else if (!gameState.ruleMode) {
-                // ルール未決定（初期状態や完全な再起動）の時のみリセットを行う
+            } else {
+                // 全てのモーダルを一旦隠し、ルール選択を表示
                 document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-                document.getElementById('mode-selection-modal').style.display = 'flex';
                 document.getElementById('game-board').style.display = 'none';
                 document.getElementById('game-controls').style.display = 'none';
                 
-                if(!isHost) {
-                    document.getElementById('mode-options').style.display = 'none';
-                    document.getElementById('guest-wait-msg').style.display = 'block';
+                // 再戦・初期化時
+                if (!gameState.ruleMode) {
+                    document.getElementById('mode-selection-modal').style.display = 'flex';
+                    if(!isHost) {
+                        document.getElementById('mode-options').style.display = 'none';
+                        document.getElementById('guest-wait-msg').style.display = 'block';
+                    }
                 }
             }
             if(gameState.gameOver) showGameOver();
@@ -289,17 +292,23 @@ function checkHostStart() {
 }
 function initGame() {
     if(!isHost) return;
-    gameState.started = true; gameState.gameOver = false; gameState.winner = null;
-    gameState.history = []; // 履歴リセット
+    gameState.started = true;
+    gameState.gameOver = false;
+    gameState.history = []; 
     gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles, undoLeft: 3 };
-    gameState.p2 = { name:(isSolo?"Bot":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles, undoLeft: 3 };
+    gameState.p2 = { name:(isSolo?"Guest (AI)":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles, undoLeft: 3 };
     for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
     gameState.turn = 1; transitionToGame(); logToBoth("--- GAME START ---", "sys"); startTurn();
 }
 
 function saveHistory() {
-    // 現在の状態をディープコピーしてスタックに保存（最大10手分程度）
-    gameState.history.push(JSON.stringify({p1: gameState.p1, p2: gameState.p2, turn: gameState.turn}));
+    if (!gameState.history) gameState.history = [];
+    const snapshot = {
+        p1: JSON.parse(JSON.stringify(gameState.p1)),
+        p2: JSON.parse(JSON.stringify(gameState.p2)),
+        turn: gameState.turn
+    };
+    gameState.history.push(snapshot);
     if (gameState.history.length > 10) gameState.history.shift();
 }
 
@@ -318,10 +327,13 @@ function requestUndo() {
 }
 
 function executeUndo() {
-    if (gameState.history.length === 0) return;
-    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    const prevState = JSON.parse(gameState.history.pop());
+    if (!gameState.history || gameState.history.length === 0) return;
+    const prevState = gameState.history.pop();
     
+    // 現在のプレイヤーのUndo回数を1減らす（状態復元前に現在の値を減らしておく）
+    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    const newUndoCount = p.undoLeft - 1;
+
     // ターンが変わっていないことの確認（他人のターンは戻せない）
     if (prevState.turn !== gameState.turn) {
         logToBoth("前のターンの行動は戻せません", "sys");
@@ -330,11 +342,13 @@ function executeUndo() {
 
     gameState.p1 = prevState.p1;
     gameState.p2 = prevState.p2;
-    // Undo回数は復元せず、減らした状態を維持する
-    const currentP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    currentP.undoLeft--;
-    
-    logToBoth(`${currentP.name}: 行動を一つ戻しました (残り:${currentP.undoLeft}回)`, "sys");
+    gameState.turn = prevState.turn;
+
+    // 復元した状態に対して、Undo回数だけを更新
+    const activeP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    activeP.undoLeft = newUndoCount;
+
+    logToBoth(`${activeP.name}: 行動を一つ戻しました（残り${activeP.undoLeft}回）`, "sys");
     resetMode();
     updateUI();
 }
@@ -574,8 +588,8 @@ function handleCardClick(owner, area, idx) {
 }
 function updateUI() {
     if(!gameState.started || !gameState.p1) return;
-    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
+    const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
     document.getElementById('my-deck').innerText = me.deck.length; document.getElementById('my-ap').innerText = me.ap; document.getElementById('my-trash').innerText = me.trash.length;
     document.getElementById('opp-deck').innerText = opp.deck.length; document.getElementById('opp-ap').innerText = opp.ap; document.getElementById('opp-trash').innerText = opp.trash.length;
@@ -583,8 +597,10 @@ function updateUI() {
     renderCards('opp-hand', opp.hand, (!isSolo), 'opp', 'hand', opp); renderCards('opp-field', opp.field, false, 'opp', 'field', opp);
     renderStyleChips('my-styles-display', me.styles); renderStyleChips('opp-styles-display', opp.styles);
         // Undo回数の表示
-    document.getElementById('undo-count').innerText = me.undoLeft;
-    document.getElementById('btn-UNDO').disabled = (!isMyTurn || me.undoLeft <= 0 || gameState.history.length === 0);
+    const undoBtn = document.getElementById('btn-UNDO');
+    const historyLen = gameState.history ? gameState.history.length : 0;
+    document.getElementById('undo-count').innerText = me.undoLeft || 0;
+    undoBtn.disabled = (!isMyTurn || (me.undoLeft || 0) <= 0 || historyLen === 0);
     // AI戦でも相手の手札は常に隠す (isBack を常に true に)
     renderCards('opp-hand', opp.hand, true, 'opp', 'hand', opp); 
 
@@ -604,7 +620,10 @@ function updateUI() {
             b.classList.remove('active-mode');
         }
     });
-
+    
+    if(isSolo) {
+        renderCards('opp-hand', gameState.p2.hand, true, 'opp', 'hand', gameState.p2);
+    }
     // 終了ボタンはハイライト不要
     document.getElementById('btn-END').disabled = (!isMyTurn || gameState.gameOver);
 }
@@ -637,6 +656,7 @@ function showGameOver() {
         label.style.color = "#e74c3c";
     }
 }
+// requestRestart 関数内（ホスト側の処理）
 function requestRestart() {
     if(confirm("ルームを維持したまま再戦しますか？")) {
         if(isHost) {
@@ -646,17 +666,18 @@ function requestRestart() {
             gameState.p1 = null;
             gameState.p2 = null;
             gameState.turn = 1;
+            gameState.ruleMode = null; // ルールもクリアする
+            gameState.history = [];    // 履歴もクリア
             
             resetLocalStates();
             
-            // UIのリセット
             document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
             document.getElementById('mode-selection-modal').style.display = 'flex';
             
             if(!isSolo) sync();
             updateUI();
         } else {
-            send('ACTION', {type:'RESTART'});
+            send('ACTION', {type: 'RESTART'});
         }
     }
 }
