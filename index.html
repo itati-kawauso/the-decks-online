@@ -208,12 +208,15 @@ function handleData(data) {
             if(gameState.started) {
                 transitionToGame();
             } else {
-                // 全てのモーダルを一旦隠し、ルール選択を表示
+                // 再戦・初期化時（started=false）
+                // 1. 全てのモーダルを強制的に閉じる（これが重要）
                 document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+                
+                // 2. 基本画面を非表示
                 document.getElementById('game-board').style.display = 'none';
                 document.getElementById('game-controls').style.display = 'none';
                 
-                // 再戦・初期化時
+                // 3. ルールが未決定ならルール選択を表示
                 if (!gameState.ruleMode) {
                     document.getElementById('mode-selection-modal').style.display = 'flex';
                     if(!isHost) {
@@ -225,13 +228,17 @@ function handleData(data) {
             if(gameState.gameOver) showGameOver();
             updateUI();
             break;
+            if(gameState.gameOver) showGameOver();
+            updateUI();
+            break;
         case 'LOG': writeLog(data.payload.msg, data.payload.type); break;
         case 'ACTION':
             if(isHost) {
                 if(data.payload.type === 'END_TURN') endTurn();
                 else if(data.payload.type === 'RESTART') requestRestart();
+                else if(data.payload.type === 'UNDO') executeUndo(); // これを追加
                 else executeAction(data.payload.type, data.payload.params);
-                sync();
+                sync(); // 実行後にゲストへ同期
             }
             break;
     }
@@ -314,41 +321,49 @@ function saveHistory() {
 
 function requestUndo() {
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    if (p.undoLeft <= 0 || gameState.history.length === 0) {
-        logToBoth("戻ることはできません（回数不足または履歴なし）", "sys");
+    const historyLen = gameState.history ? gameState.history.length : 0;
+    
+    if (p.undoLeft <= 0 || historyLen === 0) {
+        logToBoth("戻ることはできません", "sys");
         return;
     }
+
     if (isHost) {
         executeUndo();
-        if (!isSolo) sync();
+        if(!isSolo) sync();
     } else {
-        send('ACTION', {type: 'UNDO'});
+        send('ACTION', {type: 'UNDO'}); // ホストにUndoを依頼
     }
 }
 
 function executeUndo() {
     if (!gameState.history || gameState.history.length === 0) return;
+    
+    // 現在のターンのプレイヤーの残りUndo回数を保持しておく
+    const pBefore = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    const nextUndoCount = pBefore.undoLeft - 1;
+
+    // 履歴からスナップショットを取り出す
     const prevState = gameState.history.pop();
     
-    // 現在のプレイヤーのUndo回数を1減らす（状態復元前に現在の値を減らしておく）
-    const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    const newUndoCount = p.undoLeft - 1;
-
-    // ターンが変わっていないことの確認（他人のターンは戻せない）
+    // ターンを跨いでのUndoは禁止（前のターンの最後のアクションは戻せない）
     if (prevState.turn !== gameState.turn) {
         logToBoth("前のターンの行動は戻せません", "sys");
+        // 履歴を戻す（popしてしまったので、戻さないと履歴が消える）
+        gameState.history.push(prevState); 
         return;
     }
 
+    // 状態を復元
     gameState.p1 = prevState.p1;
     gameState.p2 = prevState.p2;
     gameState.turn = prevState.turn;
 
-    // 復元した状態に対して、Undo回数だけを更新
-    const activeP = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
-    activeP.undoLeft = newUndoCount;
+    // Undo回数だけは「減らした後の値」を適用する
+    const pAfter = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
+    pAfter.undoLeft = nextUndoCount;
 
-    logToBoth(`${activeP.name}: 行動を一つ戻しました（残り${activeP.undoLeft}回）`, "sys");
+    logToBoth(`${pAfter.name}: 行動を一つ戻しました（残り${pAfter.undoLeft}回）`, "sys");
     resetMode();
     updateUI();
 }
@@ -356,8 +371,7 @@ function executeUndo() {
 // requestAction の冒頭で保存を行う
 function requestAction(type, params) {
     if(isHost) {
-        saveHistory(); // アクション実行前に保存
-        executeAction(type, params);
+        executeAction(type, params); // 直接実行へ
         if(!isSolo) sync();
     } else {
         send('ACTION', {type, params});
@@ -392,6 +406,7 @@ function getRankText(rank) {
 }
     
 function executeAction(type, params) {
+    saveHistory(); // 全てのアクションの「実行直前」の状態を自動保存
     const p = (gameState.turn === 1 ? gameState.p1 : gameState.p2);
     const opp = (gameState.turn === 1 ? gameState.p2 : gameState.p1);
 
@@ -600,7 +615,10 @@ function updateUI() {
     const undoBtn = document.getElementById('btn-UNDO');
     const historyLen = gameState.history ? gameState.history.length : 0;
     document.getElementById('undo-count').innerText = me.undoLeft || 0;
-    undoBtn.disabled = (!isMyTurn || (me.undoLeft || 0) <= 0 || historyLen === 0);
+    
+    // 履歴があり、自分のターンで、かつ回数が残っている場合のみ有効
+    undoBtn.disabled = (!isMyTurn || gameState.gameOver || (me.undoLeft || 0) <= 0 || historyLen === 0);
+
     // AI戦でも相手の手札は常に隠す (isBack を常に true に)
     renderCards('opp-hand', opp.hand, true, 'opp', 'hand', opp); 
 
