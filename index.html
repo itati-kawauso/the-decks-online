@@ -542,11 +542,19 @@ function executeAction(type, params) {
             logToBoth("バリカタシックスにより破壊不能！", "atk");
         }
     }
-    else if(type === 'DIRECT' && p.ap >= 1) { // APチェック追加
-        params.idxs.forEach(i=>p.field[i].tapped=true); 
-        p.ap--; 
-        logToBoth(`${p.name}: 直接攻撃(2ダメージ)`, "atk"); 
-        applyDamage(opp, 2); 
+    else if(type === 'DIRECT') { 
+        // 攻撃陣の中にJ(rank 11)が含まれ、かつスタイルを持っているか判定
+        const hasJack = params.idxs.some(i => p.field[i].rank === 11);
+        let apCost = (hasJack && p.styles.includes('assassinJ')) ? 0 : 1;
+
+        if (p.ap >= apCost) {
+            params.idxs.forEach(i => p.field[i].tapped = true); 
+            p.ap -= apCost; 
+            logToBoth(`${p.name}: 直接攻撃(2ダメージ) [消費AP:${apCost}]`, "atk"); 
+            applyDamage(opp, 2); 
+        } else {
+            logToBoth("AP不足により直接攻撃に失敗しました", "sys");
+        }
     }
     else if(type === 'SPELL_MAIN') {
         let mainCard = p.hand[params.idx];
@@ -668,20 +676,41 @@ function handleCardClick(owner, area, idx) {
         if(currentMode === 'ATTACK' && area === 'field' && selectedCards.length > 0) {
             if(opp.field.some(x=>x.rank===4 && opp.styles.includes('shield4')) && opp.field[idx].rank !== 4) return;
             
+            // 協力戦の色チェック
             if (selectedCards.length > 1) {
                 const cards = selectedCards.map(s => me.field[s.idx]);
-                const firstColor = cards[0].red;
-                const allSameColor = cards.every(c => c.red === firstColor && !c.isJoker);
+                const allSameColor = cards.every(c => c.red === cards[0].red && !c.isJoker);
                 if (!allSameColor) {
-                    alert("協力戦は同色の兵士のみ可能です（Jokerは協力不可）");
+                    alert("協力戦は同色の兵士のみ可能です");
                     resetMode();
                     return;
                 }
             }
+
+            // --- コスト計算ロジック ---
+            let apCost = 1; // 基本 1AP
             
-            let apCost = (selectedCards.every(s=>me.field[s.idx].rank===11) && me.styles.includes('assassinJ')) ? 0 : 1;
-            if(selectedCards.length > 1 && opp.field.some(x=>x.rank===10) && opp.styles.includes('heavy10')) apCost++;
-            if(me.ap >= apCost) { requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx, apCost}); resetMode(); }
+            // 十の重圧 (相手スタイル & 協力戦なら +1AP)
+            if (selectedCards.length > 1 && opp.styles.includes('heavy10')) {
+                apCost += 1;
+            }
+
+            // アサシンジャック (自分スタイル & 攻撃陣にJ[11]がいれば -1AP)
+            const includesJack = selectedCards.some(s => me.field[s.idx].rank === 11);
+            if (includesJack && me.styles.includes('assassinJ')) {
+                apCost -= 1;
+            }
+
+            apCost = Math.max(0, apCost); // 最小0AP
+
+            // 【重要】ここで最終的なAPチェック
+            if(me.ap >= apCost) { 
+                requestAction('COMBAT', {atkIdxs: selectedCards.map(s => s.idx), defIdx: idx, apCost}); 
+                resetMode(); 
+            } else {
+                // ここで「ジャックを含まない攻撃」をAP0でやろうとした場合などに警告が出る
+                logToBoth(`APが不足しています！(この攻撃には ${apCost}AP 必要です)`, "sys");
+            }
         }
         else if(currentMode === 'SPELL_TARGET' && area === 'field') {
             requestAction('SPELL_BLACK_RESOLVE', {targetIdx: idx});
@@ -806,19 +835,22 @@ function setMode(m) {
     const me = (myRole === 'p1' ? gameState.p1 : gameState.p2);
     const opp = (myRole === 'p1' ? gameState.p2 : gameState.p1);
 
-    // モード解除の場合はそのまま通す
     if (currentMode === m) {
         resetMode();
         return;
     }
 
-    // 各行動に必要な最低APの算出
     let requiredAP = 1;
     if (m === 'SUMMON') {
         if (opp.field.some(x => x.rank === 13) && opp.styles.includes('kingAura')) requiredAP = 2;
     } else if (m === 'ATTACK') {
-        // アサシンジャック所持時は0APで開始できる可能性があるため0とする（実行時に詳細チェック）
-        requiredAP = me.styles.includes('assassinJ') ? 0 : 1;
+        // 【修正】スタイルを持ち、かつ場にJがいれば、AP0でもモードへの進入を許可する
+        const hasJackOnField = me.field.some(c => c.rank === 11);
+        if (hasJackOnField && me.styles.includes('assassinJ')) {
+            requiredAP = 0; 
+        } else {
+            requiredAP = 1;
+        }
     }
 
     if (me.ap < requiredAP) {
