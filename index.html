@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v1.2</title>
+    <title>THE DECKS Online v1.1</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -111,6 +111,15 @@
             <button class="primary" onclick="requestRestart()">同じルームで再戦</button>
             <button onclick="location.reload()">タイトルへ</button>
         </div>
+    </div>
+</div>
+
+<!-- 先攻・後攻通知モーダル -->
+<div id="turn-order-modal" class="modal">
+    <div class="modal-content">
+        <h2 id="turn-order-text"></h2>
+        <p style="color: #f1c40f;">対局を開始します</p>
+        <button class="primary" onclick="closeTurnModal()">OK</button>
     </div>
 </div>
 
@@ -339,15 +348,24 @@ function checkHostStart() {
         }
     }
 }
+// initGame関数を以下のように修正
 function initGame() {
     if(!isHost) return;
     gameState.started = true;
     gameState.gameOver = false;
+    gameState.winner = null;
     gameState.history = []; 
+
+    // --- 修正箇所：先攻(1) or 後攻(2) をランダムに決定 ---
+    gameState.turn = Math.random() < 0.5 ? 1 : 2;
+
     gameState.p1 = { name:"Host", deck:createDeck(['S','H']), hand:[], field:[], trash:[], ap:0, styles: myStyles, undoLeft: 3 };
     gameState.p2 = { name:(isSolo?"Guest (AI)":"Guest"), deck:createDeck(['C','D']), hand:[], field:[], trash:[], ap:0, styles: oppStyles, undoLeft: 3 };
     for(let i=0; i<3; i++) { gameState.p1.hand.push(gameState.p1.deck.pop()); gameState.p2.hand.push(gameState.p2.deck.pop()); }
-    gameState.turn = 1; transitionToGame(); logToBoth("--- GAME START ---", "sys"); startTurn();
+    
+    transitionToGame(); 
+    logToBoth("--- GAME START ---", "sys"); 
+    startTurn();
 }
 
 function saveHistory() {
@@ -431,11 +449,39 @@ function startTurn() {
     if(isSolo && gameState.turn === 2) setTimeout(runAiTurn, 1000);
 }
 
+let turnModalShown = false; // 二重表示防止用フラグ
+
 function transitionToGame() {
-    document.querySelectorAll('.modal').forEach(m => { if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal'].includes(m.id)) m.style.display='none'; });
+    // モーダルを一度だけ表示するための処理
+    if (!turnModalShown) {
+        const isMyTurn = (gameState.turn === (myRole === 'p1' ? 1 : 2));
+        const turnText = document.getElementById('turn-order-text');
+        
+        if (isMyTurn) {
+            turnText.innerText = "あなたが先攻！";
+            turnText.style.color = "#f1c40f"; // 金色
+        } else {
+            turnText.innerText = "あなたは後攻！";
+            turnText.style.color = "#ffffff"; // 白色
+        }
+        document.getElementById('turn-order-modal').style.display = 'flex';
+        turnModalShown = true;
+    }
+
+    document.querySelectorAll('.modal').forEach(m => { 
+        // turn-order-modal 以外を隠す
+        if(!['joker-modal','red-spell-modal','trash-modal','bounce-modal','game-over-modal','turn-order-modal'].includes(m.id)) m.style.display='none'; 
+    });
     document.getElementById('game-board').style.display = 'flex';
     document.getElementById('game-controls').style.display = 'flex';
     document.getElementById('game-log').style.display = 'block';
+}
+
+// モーダルを閉じる関数を追加
+function closeTurnModal() {
+    document.getElementById('turn-order-modal').style.display = 'none';
+    // BGMの再生もここで行うとよりスムーズです
+    if (typeof startBgmAutomatically === "function") startBgmAutomatically();
 }
     
 function getRankText(rank) {
@@ -741,7 +787,14 @@ function requestRestart() {
         }
     }
 }
-function resetLocalStates() { myStyles=[]; oppStyles=[]; myReady=false; oppReady=false; currentMode='IDLE'; selectedCards=[]; spellMainIdx=null; document.getElementById('remaining-sp').innerText="4"; document.getElementById('style-ready-btn').style.display='block'; document.getElementById('waiting-msg').style.display='none'; }
+function resetLocalStates() { 
+    myStyles=[]; oppStyles=[]; myReady=false; oppReady=false; 
+    currentMode='IDLE'; selectedCards=[]; spellMainIdx=null; 
+    turnModalShown = false; // これを追加
+    document.getElementById('remaining-sp').innerText="4"; 
+    document.getElementById('style-ready-btn').style.display='block'; 
+    document.getElementById('waiting-msg').style.display='none'; 
+}
 function resetUIVisibility() { document.getElementById('game-board').style.display = 'none'; document.getElementById('game-controls').style.display = 'none'; document.getElementById('game-log').style.display = 'none'; document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 function sync() { if(isHost && !isSolo) send('SYNC', gameState); updateUI(); }
 function send(t, p) { if(conn && conn.open) conn.send({type:t, payload:p}); }
