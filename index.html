@@ -821,7 +821,25 @@ function resolveJoker(choice) {
     updateUI();
 }
 function resolveRedChoice(c) { document.getElementById('red-spell-modal').style.display='none'; if(c==='DRAW') { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else { const me=(myRole==='p1'?gameState.p1:gameState.p2); if(me.trash.filter(x=>!x.isJoker).length === 0) { requestAction('SPELL_RED_RESOLVE', {choice:'DRAW'}); resetMode(); } else showTrashModal(me.trash); } }
-function showTrashModal(tr) { const d=document.getElementById('trash-display'); d.innerHTML=''; tr.forEach((c,i)=>{ if(c.isJoker) return; const v=document.createElement('div'); v.className=`card ${c.red?'red':''}`; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('trash-modal').style.display='none'; requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('trash-modal').style.display='flex'; }
+function showTrashModal(tr) { 
+    const d=document.getElementById('trash-display'); 
+    d.innerHTML=''; 
+    tr.forEach((c,i)=>{ 
+        if(c.isJoker) return; 
+        const v=document.createElement('div'); 
+        v.className=`card ${c.red?'red':''}`; 
+        // 修正前: <div>${c.rank}</div>
+        // 修正後: <div>${getRankText(c.rank)}</div>
+        v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${getRankText(c.rank)}</div>`; 
+        v.onclick=()=>{ 
+            document.getElementById('trash-modal').style.display='none'; 
+            requestAction('SPELL_RECOVER_FINISH',{trashIdx:i}); 
+            resetMode(); 
+        }; 
+        d.appendChild(v); 
+    }); 
+    document.getElementById('trash-modal').style.display='flex'; 
+}
 function showBounceModal(fi) { const d=document.getElementById('bounce-display'); d.innerHTML=''; fi.forEach((c,i)=>{ const v=document.createElement('div'); v.className='card'; v.innerHTML=`<div class="suit">${SUITS[c.suit]}</div><div>${c.rank}</div>`; v.onclick=()=>{ document.getElementById('bounce-modal').style.display='none'; requestAction('BOUNCE',{idx:i}); resetMode(); }; d.appendChild(v); }); document.getElementById('bounce-modal').style.display='flex'; }
 
 async function runAiTurn() {
