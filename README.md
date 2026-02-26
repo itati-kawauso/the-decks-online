@@ -3,7 +3,7 @@
 ## **📩 問い合わせ・バグ報告フォーム**
 
 不具合の報告やバランス調整、ルールに関するご質問は以下のフォームより受け付けております。  
-URL:　https://forms.gle/2gP8gdKGfgeMm2hK6　  
+URL:　[https://forms.gle/2gP8gdKGfgeMm2hK6](https://docs.google.com/forms/d/e/1FAIpQLSeWAxN814g1DOQcJUUwbJpoHl3Dq9rVuQJUnRoLayFmsPoqCA/viewform?usp=header)　  
 
 ## **🃏 トランプ対戦カードゲーム：『THE DECKS』ルール**
 
