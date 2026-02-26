@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE DECKS Online v1.1</title>
+    <title>THE DECKS Online v1.2</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding-bottom: 20px;}
@@ -849,17 +849,14 @@ async function runAiTurn() {
     logToBoth("AIが戦略を練っています...", "ai");
     await wait(1000);
 
-    // 1. スペル使用：黒スペルがあれば、相手の場の中で最もランクが高い（または邪魔な）カードを破壊
+    // 1. スペル使用：黒スペルがあれば、相手の場の中で最もランクが高いカードを破壊
     let blackSpells = ai.hand.filter(c => !c.red && !c.isJoker);
     if (blackSpells.length > 0 && ai.ap > 0 && human.field.length > 0) {
         let spell = blackSpells[0];
-        // コスト計算（もっとも低いランクのカードをコストにする）
         let sortedHand = [...ai.hand].sort((a,b) => a.rank - b.rank);
         let costCard = sortedHand.find(c => c !== spell);
         if (costCard && costCard.rank >= spell.rank - 1) {
-            saveHistory();
             executeAction('SPELL_MAIN', {idx: ai.hand.indexOf(spell), costIdxs: [{area:'hand', idx: ai.hand.indexOf(costCard)}]});
-            // 相手の最も強いカードを狙う
             let targetIdx = 0;
             let maxRank = -1;
             human.field.forEach((c, idx) => {
@@ -873,36 +870,63 @@ async function runAiTurn() {
 
     // 2. 招集：最大まで展開
     while(ai.ap > 0 && ai.field.length < 4 && ai.hand.length > 0) {
-        saveHistory();
         executeAction('SUMMON', {idx: 0, cost: 1});
         await wait(600);
     }
 
-    // 3. 攻撃フェイズ：ダメージ効率の高い順に実行
+    // 3. 攻撃フェイズ
     let attackers = ai.field.filter(c => !c.tapped);
     for (let striker of attackers) {
         if (ai.ap <= 0 || gameState.gameOver) break;
         let sIdx = ai.field.indexOf(striker);
+        let strikerRank = getEffectiveRank(striker, ai);
         
         if (human.field.length === 0) {
-            // 直接攻撃（2ダメ）
-            saveHistory();
+            // A. 直接攻撃（2ダメージ）
             executeAction('DIRECT', {idxs: [sIdx]});
+            await wait(800);
         } else {
-            // 戦闘：同色で勝てる、または同色で相打ち（1ダメ）を優先
-            let targetIdx = -1;
-            // 同色で勝てる相手を探す
-            targetIdx = human.field.findIndex(h => h.red === striker.red && getEffectiveRank(striker, ai) >= getEffectiveRank(h, human));
-            
-            // 同色がなければ、単に一番弱いカードを叩く
-            if (targetIdx === -1) {
-                targetIdx = 0; // とりあえず先頭
-            }
+            // 攻撃対象をスコアで選定
+            let bestTargetIdx = -1;
+            let bestAction = null; // 'WIN', 'TIE', 'DIFF' (異色)
 
-            saveHistory();
-            executeAction('COMBAT', {atkIdxs: [sIdx], defIdx: targetIdx, apCost: 1});
+            // ターゲットを探す
+            human.field.forEach((h, hIdx) => {
+                let hRank = getEffectiveRank(h, human);
+                let sameColor = (h.red === striker.red);
+
+                if (sameColor) {
+                    // 同色：勝てるなら最優先、相打ちは次点
+                    if (strikerRank > hRank) {
+                        if (bestAction !== 'WIN') { bestTargetIdx = hIdx; bestAction = 'WIN'; }
+                    } else if (strikerRank === hRank) {
+                        if (!bestAction || bestAction === 'DIFF') { bestTargetIdx = hIdx; bestAction = 'TIE'; }
+                    }
+                } else {
+                    // 異色：ダメージは0だが相手を確実に破壊できる（除去）
+                    // ただし相手が「バリカタシックス」かつ6の場合は異色で壊せないので除外
+                    let isBarikata = (h.rank === 6 && human.styles.includes('barikata6'));
+                    if (!isBarikata) {
+                        // 同色で勝てる見込みがない場合のみ、異色戦闘を検討
+                        if (!bestAction) {
+                            // 異色戦闘の中では、相手のランクが高いものを優先して除去
+                            if (bestTargetIdx === -1 || hRank > getEffectiveRank(human.field[bestTargetIdx], human)) {
+                                bestTargetIdx = hIdx;
+                                bestAction = 'DIFF';
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (bestTargetIdx !== -1) {
+                executeAction('COMBAT', {atkIdxs: [sIdx], defIdx: bestTargetIdx, apCost: 1});
+                await wait(800);
+            } else {
+                // 勝てる見込みも、安全な除去（異色）もできない場合は攻撃しない（自爆回避）
+                logToBoth(`AI: ${getCardName(striker)} は返り討ちを避けるため待機。`, "ai");
+            }
         }
-        await wait(800);
     }
 
     await wait(500);
