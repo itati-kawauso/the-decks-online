@@ -512,34 +512,83 @@ function executeAction(type, params) {
         if(c.rank === 1 && p.styles.includes('aceShot')) applyDamage(opp, 3);
     }
     else if(type === 'COMBAT') {
-        const atk = params.atkIdxs.map(i => p.field[i]); const def = opp.field[params.defIdx];
-        const same = atk[0].red === def.red && !atk[0].isJoker;
+        const atk = params.atkIdxs.map(i => p.field[i]); 
+        const def = opp.field[params.defIdx];
+        
+        // ジョーカーは無色のため、いずれかがジョーカーなら「同色」判定は必ずfalseになる
+        const same = (!atk[0].isJoker && !def.isJoker && atk[0].red === def.red);
+        
         const power = atk.reduce((s,c)=>s+getEffectiveRank(c,p), 0);
         const dPower = getEffectiveRank(def, opp);
-        atk.forEach(a=>a.tapped=true); p.ap -= params.apCost;
-
-        logToBoth(`戦闘(${same ? "同色" : "異色"}): ${atk.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(def)}(${dPower})`, "atk");
         
-        let canKill = true; 
-        if(def.rank===6 && opp.styles.includes('barikata6') && !same && !atk.some(x=>x.isJoker)) canKill = false;
+        atk.forEach(a=>a.tapped=true); 
+        p.ap -= params.apCost;
 
-        if(canKill && (!same || power >= dPower)) {
-            let d = opp.field.splice(params.defIdx, 1)[0]; d.tapped=false; opp.trash.push(d);
-            if(same) { 
-                applyDamage(opp, 1); 
-                if(power === dPower) { 
-                    params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); }); 
-                    logToBoth("相打ち！(双方破壊)", "atk"); 
-                } 
-            } else {
-                logToBoth("異色勝利！(ダメージ0)", "atk");
+        logToBoth(`戦闘: ${atk.map(a=>getCardName(a)).join("+")}(計${power}) VS ${getCardName(def)}(${dPower})`, "atk");
+        
+        let canKill = false;
+        let damage = 0;
+
+        if (def.isJoker) {
+            // 【修正】相手がジョーカーの場合：異色戦闘の自動破壊は適用されない
+            // 数値のみを参照し、合計値が14以上（ジョーカーの数値）の時のみ撃破
+            if (power >= 14) {
+                canKill = true;
+                damage = 0; // ジョーカー撃破時はルールにより常に0ダメージ
             }
-            if(atk.some(x=>x.rank===2) && p.styles.includes('bukkumi2')) p.ap++;
-        } else if(same && power < dPower) {
-            params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ let c=p.field.splice(i,1)[0]; c.tapped=false; p.trash.push(c); });
-            logToBoth(`返り討ち！(${p.name}側破壊)`, "atk");
-        } else if(!canKill) {
-            logToBoth("バリカタシックスにより破壊不能！", "atk");
+        } else if (same) {
+            // 同色戦闘：数値比較
+            if (power >= dPower) {
+                canKill = true;
+                damage = 1; // 同色勝利は1ダメージ
+            }
+        } else {
+            // 異色戦闘：数値に関わらず相手を破壊
+            canKill = true;
+            damage = 0; // 異色戦闘は0ダメージ
+            
+            // 例外：バリカタシックス（6は同色・JOK・黒スペル以外不壊）
+            if (def.rank === 6 && opp.styles.includes('barikata6') && !atk.some(x => x.isJoker)) {
+                canKill = false;
+            }
+        }
+
+        if (canKill) {
+            let d = opp.field.splice(params.defIdx, 1)[0]; 
+            d.tapped = false; 
+            opp.trash.push(d);
+
+            if (damage > 0) {
+                applyDamage(opp, damage);
+            } else {
+                logToBoth(`${getCardName(def)} を破壊！(ダメージ 0)`, "atk");
+            }
+
+            // 同色相打ちの処理
+            if (same && power === dPower) {
+                params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ 
+                    let c = p.field.splice(i,1)[0]; 
+                    c.tapped = false; 
+                    p.trash.push(c); 
+                }); 
+                logToBoth("相打ち！(双方破壊)", "atk"); 
+            }
+            
+            // ぶっこみツー（スタイル）
+            if (atk.some(x => x.rank === 2) && p.styles.includes('bukkumi2')) p.ap++;
+            
+        } else {
+            // 返り討ち判定（同色でパワー負けした場合のみ）
+            if (same && power < dPower) {
+                params.atkIdxs.sort((a,b)=>b-a).forEach(i=>{ 
+                    let c = p.field.splice(i,1)[0]; 
+                    c.tapped = false; 
+                    p.trash.push(c); 
+                });
+                logToBoth(`返り討ち！(${p.name}側破壊)`, "atk");
+            } else {
+                logToBoth("撃破失敗！", "atk");
+            }
         }
     }
     else if(type === 'DIRECT') { 
